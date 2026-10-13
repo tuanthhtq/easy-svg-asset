@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { Check, ChevronDown, ImagePlus, Sparkles, X } from "lucide-react";
 import type { AiCommand, AiResponse, AiSceneContext } from "../../../shared/ai";
+import { resizePromptImage } from "./promptImage";
 
 type AiBoxProps = {
   scene: AiSceneContext;
@@ -19,18 +20,12 @@ export function AiBox({ scene, onApply }: AiBoxProps) {
   const fileInput = useRef<HTMLInputElement>(null);
 
   async function readImage(file: File) {
-    if (!file.type.startsWith("image/") || file.size > 5_000_000) {
-      setError("Ảnh cần là PNG, JPEG hoặc WebP dưới 5 MB");
-      return;
+    try {
+      setImage(await resizePromptImage(file));
+      setError("");
+    } catch (cause) {
+      setError(String(cause));
     }
-    const data = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result).split(",")[1] ?? "");
-      reader.onerror = () => reject(reader.error);
-      reader.readAsDataURL(file);
-    });
-    setImage({ mimeType: file.type, data });
-    setError("");
   }
 
   async function run() {
@@ -115,6 +110,15 @@ export function AiBox({ scene, onApply }: AiBoxProps) {
               {busy ? "Đang nghĩ..." : "Đề xuất"}
             </button>
           </div>
+          {image && (
+            <div className="ai-image-preview">
+              <img
+                src={`data:${image.mimeType};base64,${image.data}`}
+                alt="Ảnh đính kèm cho AI"
+              />
+              <button onClick={() => setImage(null)}>Bỏ ảnh</button>
+            </div>
+          )}
           {response && (
             <div className="ai-review">
               <p>{response.message}</p>

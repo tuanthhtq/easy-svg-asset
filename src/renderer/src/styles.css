@@ -149,6 +149,24 @@ button svg {
   border-top: 1px solid var(--line);
   padding-top: 9px;
 }
+.ai-image-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ai-image-preview img {
+  width: 48px;
+  height: 48px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  object-fit: cover;
+}
+.ai-image-preview button {
+  border: 0;
+  padding: 0;
+  color: var(--muted);
+  background: transparent;
+}
 .ai-review p,
 .ai-error {
   margin: 0;

@@ -34,6 +34,7 @@ import {
 } from "../src/renderer/src/editor/input.ts";
 import { parsePalettePresets } from "../src/renderer/src/editor/palette.ts";
 import { parseAiCommand, validateAiPlan } from "../src/shared/ai.ts";
+import { fitImageSize } from "../src/renderer/src/components/promptImage.ts";
 import { History } from "../src/renderer/src/editor/history.ts";
 import {
   ensureProject,
@@ -161,6 +162,11 @@ test("app inputs commit like the grid size field", () => {
   assert.equal(liveInputValue("1.", 1), null);
   assert.equal(liveInputValue("-4", 0), null);
   assert.equal(liveInputValue("4", 1, undefined, true), 4);
+});
+
+test("prompt images fit within the AI image limit", () => {
+  assert.deepEqual(fitImageSize(3200, 1200), { width: 1600, height: 600 });
+  assert.deepEqual(fitImageSize(800, 600), { width: 800, height: 600 });
 });
 
 test("side resize changes only its own axis", () => {
