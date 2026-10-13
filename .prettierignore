@@ -1,0 +1,7 @@
+node_modules/
+out/
+graphify-out/
+demo_project/
+.2dflow/
+.vscode/
+pnpm-lock.yaml

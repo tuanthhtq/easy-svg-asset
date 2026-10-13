@@ -1,0 +1,37 @@
+{
+  "name": "easy-svg-asset",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "electron-vite build",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "oxlint src tests",
+    "typecheck": "tsc --noEmit",
+    "check": "node --experimental-strip-types --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "@fontsource/dm-sans": "^5.3.0",
+    "@fontsource/space-grotesk": "^5.3.0",
+    "@resvg/resvg-js": "^2.6.2",
+    "electron": "latest",
+    "electron-vite": "latest",
+    "fabric": "^7.4.0",
+    "lucide-react": "^1.55.0",
+    "react": "latest",
+    "react-dom": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "@vitejs/plugin-react": "^5.2.0",
+    "oxlint": "^1.87.0",
+    "prettier": "^3.6.2",
+    "typescript": "latest",
+    "vite": "^7.3.7"
+  }
+}

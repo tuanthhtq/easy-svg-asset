@@ -1,0 +1,421 @@
+import { useEffect, useRef, useState } from "react";
+import type { FabricObject } from "fabric";
+import {
+  Check,
+  Palette,
+  Pencil,
+  Plus,
+  SlidersHorizontal,
+  Trash2,
+} from "lucide-react";
+import { parsePalettePresets, type PalettePreset } from "../editor/palette";
+
+const PALETTE_STORAGE_KEY = "easy-svg-asset-palettes";
+
+type InspectorProps = {
+  selected: FabricObject | null;
+  fill: string | null;
+  stroke: string | null;
+  radius: number;
+  onRadiusChange: (value: number) => void;
+  onPositionChange: (key: "left" | "top", value: number) => void;
+  onPaletteColor: (value: string | null, target: "fill" | "stroke") => void;
+};
+
+export function Inspector({
+  selected,
+  fill,
+  stroke,
+  radius,
+  onRadiusChange,
+  onPositionChange,
+  onPaletteColor,
+}: InspectorProps) {
+  const [palettes, setPalettes] = useState(() =>
+    parsePalettePresets(localStorage.getItem(PALETTE_STORAGE_KEY)),
+  );
+  const [paletteId, setPaletteId] = useState(palettes[0].id);
+  const [paletteTarget, setPaletteTarget] = useState<"fill" | "stroke">("fill");
+  const [editingPalette, setEditingPalette] = useState(false);
+  const [presetEditor, setPresetEditor] = useState<{
+    mode: "add" | "rename";
+    name: string;
+  } | null>(null);
+  const [selectedPaletteColor, setSelectedPaletteColor] = useState<
+    number | null
+  >(null);
+  const [paletteMenu, setPaletteMenu] = useState<{
+    x: number;
+    y: number;
+    index: number;
+  } | null>(null);
+  const [editingColorIndex, setEditingColorIndex] = useState<number | null>(
+    null,
+  );
+  const colorInputRef = useRef<HTMLInputElement>(null);
+  const palette = palettes.find((item) => item.id === paletteId) ?? palettes[0];
+  const currentFill = selected ? selected.fill : fill;
+  const currentStroke = selected ? selected.stroke : stroke;
+  const fillColor = typeof currentFill === "string" ? currentFill : null;
+  const strokeColor = typeof currentStroke === "string" ? currentStroke : null;
+
+  useEffect(() => {
+    if (!paletteMenu) return;
+    const close = () => setPaletteMenu(null);
+    window.addEventListener("click", close);
+    return () => window.removeEventListener("click", close);
+  }, [paletteMenu]);
+
+  useEffect(() => {
+    localStorage.setItem(PALETTE_STORAGE_KEY, JSON.stringify(palettes));
+  }, [palettes]);
+
+  function savePresetName() {
+    if (!presetEditor) return;
+    const name = presetEditor.name.trim().slice(0, 40);
+    if (!name) return;
+    if (presetEditor.mode === "rename") {
+      setPalettes((items) =>
+        items.map((item) =>
+          item.id === palette.id ? { ...item, name } : item,
+        ),
+      );
+      setPresetEditor(null);
+      return;
+    }
+    const next: PalettePreset = {
+      id: crypto.randomUUID(),
+      name,
+      colors: [...palette.colors],
+    };
+    setPalettes((items) => [...items, next]);
+    setPaletteId(next.id);
+    setPresetEditor(null);
+  }
+
+  function removePalette() {
+    if (
+      palettes.length === 1 ||
+      !window.confirm(`Delete palette "${palette.name}"?`)
+    )
+      return;
+    const remaining = palettes.filter((item) => item.id !== palette.id);
+    setPalettes(remaining);
+    setPaletteId(remaining[0].id);
+  }
+
+  function updatePaletteColor(index: number, color: string) {
+    setPalettes((items) =>
+      items.map((item) =>
+        item.id === palette.id
+          ? {
+              ...item,
+              colors: item.colors.map((value, itemIndex) =>
+                itemIndex === index ? color : value,
+              ),
+            }
+          : item,
+      ),
+    );
+  }
+
+  function addPaletteColor(color: string) {
+    if (palette.colors.length >= 16) return;
+    setPalettes((items) =>
+      items.map((item) =>
+        item.id === palette.id
+          ? { ...item, colors: [...item.colors, color] }
+          : item,
+      ),
+    );
+  }
+
+  function removePaletteColor(index: number) {
+    if (palette.colors.length === 1) return;
+    setPalettes((items) =>
+      items.map((item) =>
+        item.id === palette.id
+          ? {
+              ...item,
+              colors: item.colors.filter((_, itemIndex) => itemIndex !== index),
+            }
+          : item,
+      ),
+    );
+    setSelectedPaletteColor(null);
+  }
+
+  function choosePaletteColor(index: number, color: string) {
+    if (editingPalette) {
+      setSelectedPaletteColor(index);
+      return;
+    }
+    onPaletteColor(color, paletteTarget);
+  }
+
+  function openPaletteColorEditor(index: number) {
+    setPaletteMenu(null);
+    setEditingColorIndex(index);
+    const input = colorInputRef.current;
+    if (!input) return;
+    input.value = palette.colors[index];
+    try {
+      input.showPicker();
+    } catch {
+      input.click();
+    }
+  }
+
+  return (
+    <aside className="inspector">
+      <div className="palette-setting">
+        <div className="palette-toolbar">
+          <select
+            aria-label="Palette preset"
+            value={palette.id}
+            onChange={(event) => setPaletteId(event.target.value)}
+          >
+            {palettes.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+          <button
+            title="New palette"
+            aria-label="New palette"
+            onClick={() =>
+              setPresetEditor({ mode: "add", name: "New palette" })
+            }
+          >
+            <Plus />
+          </button>
+          <button
+            title="Rename palette"
+            aria-label="Rename palette"
+            onClick={() =>
+              setPresetEditor({ mode: "rename", name: palette.name })
+            }
+          >
+            <Pencil />
+          </button>
+          <button
+            className={editingPalette ? "active" : ""}
+            title="Edit palette colors"
+            aria-label="Edit palette colors"
+            onClick={() => {
+              setEditingPalette((value) => !value);
+              setPaletteMenu(null);
+              setSelectedPaletteColor(null);
+            }}
+          >
+            {editingPalette ? <Check /> : <Palette />}
+          </button>
+          <button
+            title="Delete palette"
+            aria-label="Delete palette"
+            disabled={palettes.length === 1}
+            onClick={removePalette}
+          >
+            <Trash2 />
+          </button>
+        </div>
+        {presetEditor && (
+          <div className="palette-name-editor">
+            <input
+              autoFocus
+              maxLength={40}
+              value={presetEditor.name}
+              onChange={(event) =>
+                setPresetEditor({ ...presetEditor, name: event.target.value })
+              }
+              onKeyDown={(event) => {
+                if (event.key === "Enter") savePresetName();
+                if (event.key === "Escape") setPresetEditor(null);
+              }}
+            />
+            <button onClick={savePresetName}>Save</button>
+            <button onClick={() => setPresetEditor(null)}>Cancel</button>
+          </div>
+        )}
+        <div className="palette-swatches" aria-label="Palette presets">
+          <button
+            className="palette-swatch palette-none"
+            title={`No ${paletteTarget}`}
+            aria-label={`No ${paletteTarget}`}
+            onClick={() => onPaletteColor(null, paletteTarget)}
+          />
+          {palette.colors.map((color, index) => (
+            <div
+              className={
+                selectedPaletteColor === index
+                  ? "palette-swatch-wrap selected"
+                  : "palette-swatch-wrap"
+              }
+              key={`${index}-${color}`}
+              onMouseDown={(event) => {
+                if (!editingPalette || event.button !== 1) return;
+                event.preventDefault();
+                removePaletteColor(index);
+              }}
+              onContextMenu={(event) => {
+                if (!editingPalette) return;
+                event.preventDefault();
+                setPaletteMenu({
+                  x: Math.min(event.clientX, window.innerWidth - 140),
+                  y: Math.min(event.clientY, window.innerHeight - 90),
+                  index,
+                });
+              }}
+            >
+              <button
+                className="palette-swatch"
+                title={color}
+                aria-label={`Use ${color}`}
+                style={{ backgroundColor: color }}
+                onClick={() => choosePaletteColor(index, color)}
+              />
+            </div>
+          ))}
+          {editingPalette && (
+            <label
+              className="palette-add-color"
+              title="Add color"
+              aria-label="Add color"
+            >
+              <Plus />
+              <input
+                type="color"
+                value="#ffffff"
+                disabled={palette.colors.length >= 16}
+                onChange={(event) => addPaletteColor(event.target.value)}
+              />
+            </label>
+          )}
+        </div>
+        {editingPalette && selectedPaletteColor !== null && (
+          <label className="palette-selected-color">
+            <span>Edit color</span>
+            <input
+              type="color"
+              value={palette.colors[selectedPaletteColor] ?? "#000000"}
+              onChange={(event) =>
+                updatePaletteColor(selectedPaletteColor, event.target.value)
+              }
+            />
+            <code>{palette.colors[selectedPaletteColor]}</code>
+          </label>
+        )}
+        <div className="style-targets" aria-label="Color target">
+          <button
+            className={paletteTarget === "fill" ? "active" : ""}
+            onClick={() => setPaletteTarget("fill")}
+          >
+            <span
+              className={fillColor ? "" : "none"}
+              style={fillColor ? { backgroundColor: fillColor } : undefined}
+            />
+            Fill
+          </button>
+          <button
+            className={paletteTarget === "stroke" ? "active" : ""}
+            onClick={() => setPaletteTarget("stroke")}
+          >
+            <span
+              className={strokeColor ? "" : "none"}
+              style={strokeColor ? { backgroundColor: strokeColor } : undefined}
+            />
+            Stroke
+          </button>
+        </div>
+        <input
+          ref={colorInputRef}
+          className="palette-color-editor"
+          type="color"
+          value={
+            editingColorIndex === null
+              ? "#000000"
+              : (palette.colors[editingColorIndex] ?? "#000000")
+          }
+          onChange={(event) => {
+            if (editingColorIndex !== null)
+              updatePaletteColor(editingColorIndex, event.target.value);
+          }}
+          onBlur={() => setEditingColorIndex(null)}
+          aria-label="Edit palette color"
+        />
+        {paletteMenu && (
+          <div
+            className="palette-context-menu"
+            style={{ left: paletteMenu.x, top: paletteMenu.y }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button onClick={() => openPaletteColorEditor(paletteMenu.index)}>
+              Edit color
+            </button>
+            <button
+              disabled={palette.colors.length === 1}
+              onClick={() => {
+                removePaletteColor(paletteMenu.index);
+                setPaletteMenu(null);
+              }}
+            >
+              Delete color
+            </button>
+          </div>
+        )}
+      </div>
+      <div className="inspector-title">
+        <span>
+          <SlidersHorizontal /> Design
+        </span>
+        {selected && <small>{selected.type}</small>}
+      </div>
+      {selected ? (
+        <>
+          {selected.type === "rect" && (
+            <label>
+              <span>Radius</span>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                value={radius}
+                onChange={(event) => onRadiusChange(Number(event.target.value))}
+              />
+            </label>
+          )}
+          <div className="inspector-grid">
+            <label>
+              <span>X</span>
+              <input
+                type="number"
+                value={Math.round(selected.left ?? 0)}
+                onChange={(event) =>
+                  onPositionChange("left", Number(event.target.value))
+                }
+              />
+            </label>
+            <label>
+              <span>Y</span>
+              <input
+                type="number"
+                value={Math.round(selected.top ?? 0)}
+                onChange={(event) =>
+                  onPositionChange("top", Number(event.target.value))
+                }
+              />
+            </label>
+          </div>
+        </>
+      ) : (
+        <div className="empty-inspector">
+          <div>
+            <SlidersHorizontal />
+          </div>
+          <p>Select an object to edit its appearance and position.</p>
+        </div>
+      )}
+    </aside>
+  );
+}
