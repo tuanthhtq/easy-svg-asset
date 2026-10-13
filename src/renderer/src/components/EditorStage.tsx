@@ -1,4 +1,4 @@
-import type { RefObject } from "react";
+import type { ReactNode, RefObject } from "react";
 import type { ContextMenu, LayerAction } from "../editor/useCanvasEditor";
 import {
   ArrowDown,
@@ -23,7 +23,7 @@ type EditorStageProps = {
   zoom: number;
   snapToGrid: boolean;
   gridSize: number;
-  autoSaveDelay: number;
+  overlay?: ReactNode;
   onLayer: (action: LayerAction) => void;
   onCloseContextMenu: () => void;
   onGroup: () => void;
@@ -32,7 +32,6 @@ type EditorStageProps = {
   onZoom: (zoom: number) => void;
   onSnapChange: (value: boolean) => void;
   onGridSizeChange: (value: number) => void;
-  onAutoSaveDelayChange: (value: number) => void;
 };
 
 export function EditorStage({
@@ -47,7 +46,7 @@ export function EditorStage({
   zoom,
   snapToGrid,
   gridSize,
-  autoSaveDelay,
+  overlay,
   onLayer,
   onCloseContextMenu,
   onGroup,
@@ -56,7 +55,6 @@ export function EditorStage({
   onZoom,
   onSnapChange,
   onGridSizeChange,
-  onAutoSaveDelayChange,
 }: EditorStageProps) {
   return (
     <section className="stage-wrap">
@@ -84,16 +82,6 @@ export function EditorStage({
               onCommit={onGridSizeChange}
             />
           )}
-          <AppInput
-            label="Auto-save"
-            min={100}
-            max={10000}
-            step={100}
-            value={autoSaveDelay}
-            fallback={500}
-            integer
-            onCommit={onAutoSaveDelayChange}
-          />
         </div>
       </header>
       {hasSelection && (
@@ -230,6 +218,7 @@ export function EditorStage({
           <Plus />
         </button>
       </div>
+      {overlay}
     </section>
   );
 }

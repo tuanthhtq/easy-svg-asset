@@ -1,27 +1,30 @@
 import { useEffect, useState } from "react";
 import type {
+  AppSettings,
+  AppSettingsInput,
   LibraryShape,
   Project,
   ProjectSettings,
   RecentFolder,
 } from "../../shared/types";
+import { validateAiPlan, type AiResponse } from "../../shared/ai";
+import { AiBox } from "./components/AiBox";
 import { EditorStage } from "./components/EditorStage";
 import { Inspector } from "./components/Inspector";
 import { ProjectPanel, type Panel } from "./components/ProjectPanel";
 import { ToolRail } from "./components/ToolRail";
+import { Settings } from "./components/Settings";
 import { Welcome } from "./components/Welcome";
 import { useCanvasEditor } from "./editor/useCanvasEditor";
+import { parsePalettePresets, type PalettePreset } from "./editor/palette";
 
-const AUTO_SAVE_DELAY_KEY = "easy-svg-asset-auto-save-delay";
-
-function readAutoSaveDelay() {
-  const saved = localStorage.getItem(AUTO_SAVE_DELAY_KEY);
-  if (saved === null) return 500;
-  const value = Number(saved);
-  return Number.isFinite(value)
-    ? Math.min(10000, Math.max(100, Math.round(value)))
-    : 500;
-}
+const PALETTE_STORAGE_KEY = "easy-svg-asset-palettes";
+const DEFAULT_APP_SETTINGS: AppSettings = {
+  autoSaveDelay: 500,
+  aiApiUrl: "https://api.openai.com/v1/responses",
+  aiModel: "",
+  hasAiSecret: false,
+};
 
 export function App() {
   const [project, setProject] = useState<Project | null>(null);
@@ -30,18 +33,27 @@ export function App() {
   const [library, setLibrary] = useState<LibraryShape[]>([]);
   const [fileName, setFileName] = useState("untitled.svg");
   const [openedName, setOpenedName] = useState<string | null>(null);
-  const [autoSaveDelay, setAutoSaveDelay] = useState(readAutoSaveDelay);
+  const [settings, setSettings] = useState(DEFAULT_APP_SETTINGS);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [palettes, setPalettes] = useState<PalettePreset[]>(() =>
+    parsePalettePresets(localStorage.getItem(PALETTE_STORAGE_KEY)),
+  );
+  const [paletteId, setPaletteId] = useState(palettes[0].id);
   const [panel, setPanel] = useState<Panel>("layers");
   const editor = useCanvasEditor(project);
 
   useEffect(() => {
-    localStorage.setItem(AUTO_SAVE_DELAY_KEY, String(autoSaveDelay));
-  }, [autoSaveDelay]);
-
-  useEffect(() => {
     void window.studio.recentFolders().then(setRecent);
     void window.studio.listLibrary().then(setLibrary);
+    void window.studio
+      .getAppSettings()
+      .then(setSettings)
+      .catch((error) => window.alert(String(error)));
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem(PALETTE_STORAGE_KEY, JSON.stringify(palettes));
+  }, [palettes]);
 
   useEffect(() => {
     if (!project) return;
@@ -73,6 +85,10 @@ export function App() {
     void window.studio
       .saveProjectSettings(settings)
       .catch((error) => window.alert(String(error)));
+  }
+
+  async function saveAppSettings(next: AppSettingsInput) {
+    setSettings(await window.studio.saveAppSettings(next));
   }
 
   async function openFolder() {
@@ -131,9 +147,12 @@ export function App() {
 
   useEffect(() => {
     if (!project || !editor.changeVersion) return;
-    const timer = window.setTimeout(() => void save(false), autoSaveDelay);
+    const timer = window.setTimeout(
+      () => void save(false),
+      settings.autoSaveDelay,
+    );
     return () => window.clearTimeout(timer);
-  }, [editor.changeVersion, autoSaveDelay]);
+  }, [editor.changeVersion, settings.autoSaveDelay]);
 
   async function importSvg() {
     try {
@@ -174,13 +193,85 @@ export function App() {
     await editor.addSvg(await window.studio.useLibraryShape(shape.path));
   }
 
+  function applyAi(response: AiResponse) {
+    try {
+      const activePalette =
+        palettes.find((palette) => palette.id === paletteId) ?? palettes[0];
+      const scene = editor.sceneContext(activePalette);
+      if (scene.sceneVersion !== response.sceneVersion)
+        throw new Error(
+          "Canvas changed after this proposal. Generate it again.",
+        );
+      validateAiPlan(response.commands, scene, palettes);
+      let nextPalettes = palettes;
+      let nextPaletteId = paletteId;
+      for (const command of response.commands) {
+        if (command.kind === "generate_palette") {
+          if (command.mode === "create") {
+            const next = {
+              id: crypto.randomUUID(),
+              name: command.paletteName,
+              colors: command.colors,
+            };
+            nextPalettes = [...nextPalettes, next];
+            nextPaletteId = next.id;
+          } else {
+            nextPalettes = nextPalettes.map((palette) =>
+              palette.id === command.targetPaletteId
+                ? {
+                    ...palette,
+                    name: command.paletteName,
+                    colors: command.colors,
+                  }
+                : palette,
+            );
+          }
+        }
+        if (
+          command.kind === "recolor_objects" &&
+          command.paletteSuggestions.length
+        )
+          nextPalettes = nextPalettes.map((palette) =>
+            palette.id === command.paletteId
+              ? {
+                  ...palette,
+                  colors: [
+                    ...new Set([
+                      ...palette.colors,
+                      ...command.paletteSuggestions,
+                    ]),
+                  ].slice(0, 16),
+                }
+              : palette,
+          );
+      }
+      setPalettes(nextPalettes);
+      setPaletteId(nextPaletteId);
+      editor.applyAiCommands(response.commands);
+      return true;
+    } catch (error) {
+      window.alert(String(error));
+      return false;
+    }
+  }
+
   if (!project)
     return (
-      <Welcome
-        recent={recent}
-        onOpenFolder={() => void openFolder()}
-        onOpenRecent={(folder) => void openRecent(folder)}
-      />
+      <>
+        <Welcome
+          recent={recent}
+          onOpenFolder={() => void openFolder()}
+          onOpenRecent={(folder) => void openRecent(folder)}
+          onOpenSettings={() => setSettingsOpen(true)}
+        />
+        {settingsOpen && (
+          <Settings
+            settings={settings}
+            onClose={() => setSettingsOpen(false)}
+            onSave={saveAppSettings}
+          />
+        )}
+      </>
     );
 
   return (
@@ -216,6 +307,7 @@ export function App() {
           onUndo={editor.undo}
           onRedo={editor.redo}
           onOpenFolder={() => void openFolder()}
+          onOpenSettings={() => setSettingsOpen(true)}
         />
         <EditorStage
           canvasEl={editor.canvasEl}
@@ -229,7 +321,15 @@ export function App() {
           zoom={editor.zoom}
           snapToGrid={editor.snapToGrid}
           gridSize={editor.gridSize}
-          autoSaveDelay={autoSaveDelay}
+          overlay={
+            <AiBox
+              scene={editor.sceneContext(
+                palettes.find((palette) => palette.id === paletteId) ??
+                  palettes[0],
+              )}
+              onApply={applyAi}
+            />
+          }
           onLayer={editor.layer}
           onCloseContextMenu={editor.closeContextMenu}
           onGroup={editor.group}
@@ -250,10 +350,6 @@ export function App() {
               gridSize: value,
             });
           }}
-          onAutoSaveDelayChange={(value) =>
-            Number.isFinite(value) &&
-            setAutoSaveDelay(Math.min(10000, Math.max(100, Math.round(value))))
-          }
         />
         <Inspector
           selected={editor.selected}
@@ -261,6 +357,10 @@ export function App() {
           stroke={editor.stroke}
           strokeWidth={editor.strokeWidth}
           radius={editor.radius}
+          palettes={palettes}
+          paletteId={paletteId}
+          onPaletteIdChange={setPaletteId}
+          onPalettesChange={setPalettes}
           onStrokeWidthChange={(value) =>
             editor.updateStyle("strokeWidth", value)
           }
@@ -277,6 +377,13 @@ export function App() {
           }}
         />
       </div>
+      {settingsOpen && (
+        <Settings
+          settings={settings}
+          onClose={() => setSettingsOpen(false)}
+          onSave={saveAppSettings}
+        />
+      )}
     </main>
   );
 }

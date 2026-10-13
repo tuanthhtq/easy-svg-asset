@@ -33,6 +33,7 @@ import {
   wheelZoom,
 } from "../src/renderer/src/editor/input.ts";
 import { parsePalettePresets } from "../src/renderer/src/editor/palette.ts";
+import { parseAiCommand, validateAiPlan } from "../src/shared/ai.ts";
 import { History } from "../src/renderer/src/editor/history.ts";
 import {
   ensureProject,
@@ -199,10 +200,107 @@ test("palette presets reject invalid saved data", () => {
   );
 });
 
+test("AI plan validation rejects overlap and palette violations", () => {
+  const shape = {
+    type: "rect",
+    name: "land",
+    x: 20,
+    y: 20,
+    width: 40,
+    height: 40,
+    rotation: 0,
+    fill: "#123456",
+    stroke: null,
+    strokeWidth: 0,
+    radius: 0,
+    points: null,
+  };
+  const scene = {
+    canvas: { width: 200, height: 200 },
+    objects: [
+      {
+        id: "existing",
+        type: "rect",
+        name: "Existing",
+        bounds: { left: 0, top: 0, width: 50, height: 50 },
+        rotation: 0,
+        zIndex: 0,
+        fill: "#ffffff",
+        stroke: null,
+        strokeWidth: 0,
+        radius: null,
+      },
+    ],
+    selectedObjectIds: [],
+    activePalette: { id: "warm", name: "Warm", colors: ["#123456"] },
+    sceneVersion: 1,
+  };
+  assert.throws(
+    () =>
+      validateAiPlan([{ kind: "create_shape", shape }], scene, [
+        scene.activePalette,
+      ]),
+    /over an existing object/,
+  );
+  const recolor = parseAiCommand("recolor_objects", {
+    paletteId: "warm",
+    paletteSuggestions: [],
+    changes: [{ objectId: "existing", fill: "#ff0000", stroke: null }],
+  });
+  assert.throws(
+    () => validateAiPlan([recolor], scene, [scene.activePalette]),
+    /outside the palette/,
+  );
+});
+
+test("AI assets require a named group and valid child shapes", () => {
+  const command = parseAiCommand("create_asset", {
+    groupName: "Farm plot",
+    children: [
+      {
+        type: "rect",
+        name: "field",
+        x: 20,
+        y: 20,
+        width: 40,
+        height: 40,
+        rotation: 0,
+        fill: "#123456",
+        stroke: null,
+        strokeWidth: 0,
+        radius: 0,
+        points: null,
+      },
+      {
+        type: "ellipse",
+        name: "pond",
+        x: 28,
+        y: 28,
+        width: 12,
+        height: 8,
+        rotation: 0,
+        fill: "#abcdef",
+        stroke: null,
+        strokeWidth: 0,
+        radius: 0,
+        points: null,
+      },
+    ],
+  });
+  assert.equal(command.kind, "create_asset");
+  assert.equal(command.groupName, "Farm plot");
+  assert.throws(
+    () => parseAiCommand("create_asset", { groupName: "", children: [] }),
+    /group name|asset needs/,
+  );
+});
+
 test("flattened groups survive editor history serialization", async () => {
   const group = markFlattened(new Group([new Rect({ width: 10, height: 10 })]));
+  group.name = "Farm asset";
   const restored = await Group.fromObject(group.toObject());
   assert.equal(isFlattened(restored), true);
+  assert.equal(restored.name, "Farm asset");
   assert.match(String(restored.id), /^easy-svg-flattened-/);
   assert.match(group.toSVG(), /id="easy-svg-flattened-/);
 
@@ -213,6 +311,13 @@ test("flattened groups survive editor history serialization", async () => {
   const flattenedByFabric = new Rect({ id: String(group.id) });
   restoreFlattened({ id: "" }, flattenedByFabric);
   assert.equal(isFlattened(flattenedByFabric), true);
+
+  const namedGroup = new Group();
+  restoreFlattened(
+    { id: "asset-id", getAttribute: () => "Farm asset" },
+    namedGroup,
+  );
+  assert.equal(namedGroup.name, "Farm asset");
 });
 test("history supports undo, redo, and branch truncation", () => {
   const history = new History();

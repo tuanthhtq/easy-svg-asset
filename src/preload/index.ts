@@ -15,5 +15,8 @@ const api: StudioApi = {
   saveLibraryShape: (name, svg) =>
     ipcRenderer.invoke("library:save", name, svg),
   useLibraryShape: (path) => ipcRenderer.invoke("library:use", path),
+  getAppSettings: () => ipcRenderer.invoke("settings:get"),
+  saveAppSettings: (settings) => ipcRenderer.invoke("settings:save", settings),
+  runAi: (request) => ipcRenderer.invoke("ai:run", request),
 };
 contextBridge.exposeInMainWorld("studio", api);

@@ -29,6 +29,9 @@ export function markFlattened(object: FabricObject) {
 
 export function restoreFlattened(element: Element, object: FabricObject) {
   const named = object as FlattenedObject;
+  if (element.id) named.id = element.id;
+  const groupName = element.getAttribute?.("data-name");
+  if (groupName) (named as FabricObject & { name?: string }).name = groupName;
   if (
     element.id.startsWith(FLATTENED_ID_PREFIX) ||
     (typeof named.id === "string" && named.id.startsWith(FLATTENED_ID_PREFIX))

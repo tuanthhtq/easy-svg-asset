@@ -33,6 +33,8 @@ import type {
   ProjectSettings,
   RecentFolder,
 } from "../shared/types";
+import { runAi } from "./openai";
+import { getAppSettings, saveAppSettings } from "./settings";
 
 let activeRoot: string | null = null;
 let activeProject: Project | null = null;
@@ -263,6 +265,11 @@ function registerIpc() {
     const target = await safeLibraryPath(path);
     return validateSvg(await readFile(target, "utf8"));
   });
+  ipcMain.handle("settings:get", () => getAppSettings());
+  ipcMain.handle("settings:save", (_, value: unknown) =>
+    saveAppSettings(value),
+  );
+  ipcMain.handle("ai:run", (_, value: unknown) => runAi(value));
 }
 function createWindow() {
   const window = new BrowserWindow({

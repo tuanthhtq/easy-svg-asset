@@ -4,6 +4,7 @@ import {
   MousePointer2,
   PenTool,
   Redo2,
+  Settings,
   Square,
   Triangle,
   Undo2,
@@ -18,6 +19,7 @@ type ToolRailProps = {
   onUndo: () => void;
   onRedo: () => void;
   onOpenFolder: () => void;
+  onOpenSettings: () => void;
 };
 
 export function ToolRail({
@@ -28,6 +30,7 @@ export function ToolRail({
   onUndo,
   onRedo,
   onOpenFolder,
+  onOpenSettings,
 }: ToolRailProps) {
   return (
     <nav className="tool-rail" aria-label="Drawing tools">
@@ -77,6 +80,14 @@ export function ToolRail({
         <Triangle />
       </button>
       <div className="rail-spacer" />
+      <button
+        className="rail-tool"
+        title="Settings"
+        aria-label="Settings"
+        onClick={onOpenSettings}
+      >
+        <Settings />
+      </button>
       <button
         className="rail-tool"
         title="Undo"

@@ -8,10 +8,8 @@ import {
   SlidersHorizontal,
   Trash2,
 } from "lucide-react";
-import { parsePalettePresets, type PalettePreset } from "../editor/palette";
+import type { PalettePreset } from "../editor/palette";
 import { AppInput } from "./AppInput";
-
-const PALETTE_STORAGE_KEY = "easy-svg-asset-palettes";
 
 type InspectorProps = {
   selected: FabricObject | null;
@@ -24,6 +22,10 @@ type InspectorProps = {
   onPositionChange: (key: "left" | "top", value: number) => void;
   onSizeChange: (key: "width" | "height", value: number) => void;
   onPaletteColor: (value: string | null, target: "fill" | "stroke") => void;
+  palettes: PalettePreset[];
+  paletteId: string;
+  onPaletteIdChange: (id: string) => void;
+  onPalettesChange: (palettes: PalettePreset[]) => void;
 };
 
 export function Inspector({
@@ -37,11 +39,11 @@ export function Inspector({
   onPositionChange,
   onSizeChange,
   onPaletteColor,
+  palettes,
+  paletteId,
+  onPaletteIdChange,
+  onPalettesChange,
 }: InspectorProps) {
-  const [palettes, setPalettes] = useState(() =>
-    parsePalettePresets(localStorage.getItem(PALETTE_STORAGE_KEY)),
-  );
-  const [paletteId, setPaletteId] = useState(palettes[0].id);
   const [paletteTarget, setPaletteTarget] = useState<"fill" | "stroke">("fill");
   const [editingPalette, setEditingPalette] = useState(false);
   const [presetEditor, setPresetEditor] = useState<{
@@ -73,17 +75,13 @@ export function Inspector({
     return () => window.removeEventListener("click", close);
   }, [paletteMenu]);
 
-  useEffect(() => {
-    localStorage.setItem(PALETTE_STORAGE_KEY, JSON.stringify(palettes));
-  }, [palettes]);
-
   function savePresetName() {
     if (!presetEditor) return;
     const name = presetEditor.name.trim().slice(0, 40);
     if (!name) return;
     if (presetEditor.mode === "rename") {
-      setPalettes((items) =>
-        items.map((item) =>
+      onPalettesChange(
+        palettes.map((item) =>
           item.id === palette.id ? { ...item, name } : item,
         ),
       );
@@ -95,8 +93,8 @@ export function Inspector({
       name,
       colors: [...palette.colors],
     };
-    setPalettes((items) => [...items, next]);
-    setPaletteId(next.id);
+    onPalettesChange([...palettes, next]);
+    onPaletteIdChange(next.id);
     setPresetEditor(null);
   }
 
@@ -107,13 +105,13 @@ export function Inspector({
     )
       return;
     const remaining = palettes.filter((item) => item.id !== palette.id);
-    setPalettes(remaining);
-    setPaletteId(remaining[0].id);
+    onPalettesChange(remaining);
+    onPaletteIdChange(remaining[0].id);
   }
 
   function updatePaletteColor(index: number, color: string) {
-    setPalettes((items) =>
-      items.map((item) =>
+    onPalettesChange(
+      palettes.map((item) =>
         item.id === palette.id
           ? {
               ...item,
@@ -128,8 +126,8 @@ export function Inspector({
 
   function addPaletteColor(color: string) {
     if (palette.colors.length >= 16) return;
-    setPalettes((items) =>
-      items.map((item) =>
+    onPalettesChange(
+      palettes.map((item) =>
         item.id === palette.id
           ? { ...item, colors: [...item.colors, color] }
           : item,
@@ -139,8 +137,8 @@ export function Inspector({
 
   function removePaletteColor(index: number) {
     if (palette.colors.length === 1) return;
-    setPalettes((items) =>
-      items.map((item) =>
+    onPalettesChange(
+      palettes.map((item) =>
         item.id === palette.id
           ? {
               ...item,
@@ -180,7 +178,7 @@ export function Inspector({
           <select
             aria-label="Palette preset"
             value={palette.id}
-            onChange={(event) => setPaletteId(event.target.value)}
+            onChange={(event) => onPaletteIdChange(event.target.value)}
           >
             {palettes.map((item) => (
               <option key={item.id} value={item.id}>

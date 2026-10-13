@@ -1,3 +1,5 @@
+import type { AiRequest, AiResponse } from "./ai";
+
 export type Project = {
   name: string;
   root: string;
@@ -9,6 +11,15 @@ export type Project = {
 export type ProjectSettings = Pick<Project, "snapToGrid" | "gridSize">;
 export type RecentFolder = { name: string; root: string; openedAt: string };
 export type LibraryShape = { name: string; path: string; svg: string };
+export type AppSettings = {
+  autoSaveDelay: number;
+  aiApiUrl: string;
+  aiModel: string;
+  hasAiSecret: boolean;
+};
+export type AppSettingsInput = Omit<AppSettings, "hasAiSecret"> & {
+  aiSecret?: string;
+};
 
 export type StudioApi = {
   openFolder: () => Promise<Project | null>;
@@ -23,4 +34,7 @@ export type StudioApi = {
   listLibrary: () => Promise<LibraryShape[]>;
   saveLibraryShape: (name: string, svg: string) => Promise<LibraryShape[]>;
   useLibraryShape: (path: string) => Promise<string>;
+  getAppSettings: () => Promise<AppSettings>;
+  saveAppSettings: (settings: AppSettingsInput) => Promise<AppSettings>;
+  runAi: (request: AiRequest) => Promise<AiResponse>;
 };

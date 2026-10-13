@@ -15,6 +15,12 @@ import {
   type TPointerEventInfo,
 } from "fabric";
 import type { Project } from "../../../shared/types";
+import type {
+  AiCommand,
+  AiPalette,
+  AiSceneContext,
+  AiShapeSpec,
+} from "../../../shared/ai";
 import { isFlattened, markFlattened, restoreFlattened } from "./flatten";
 import { History } from "./history";
 import {
@@ -536,6 +542,7 @@ export function useCanvasEditor(project: Project | null) {
     setContextMenu(null);
     history.current.reset(snapshot());
     setDocumentSize(DEFAULT_CANVAS_WIDTH, DEFAULT_CANVAS_HEIGHT);
+    setChangeVersion((value) => value + 1);
     render((count) => count + 1);
   }
 
@@ -565,6 +572,7 @@ export function useCanvasEditor(project: Project | null) {
     );
     history.current.reset(snapshot());
     setSelected(null);
+    setChangeVersion((value) => value + 1);
     render((count) => count + 1);
   }
 
@@ -868,11 +876,137 @@ export function useCanvasEditor(project: Project | null) {
     refreshSelection();
   }
 
+  function createAiShape(shape: AiShapeSpec) {
+    const common = {
+      angle: shape.rotation,
+      fill: shape.fill,
+      stroke: shape.stroke,
+      strokeWidth: shape.strokeWidth,
+      strokeUniform: true,
+      name: shape.name,
+      id: crypto.randomUUID(),
+    };
+    if (shape.type === "pen")
+      return prepareObject(
+        new Polygon(shape.points!, common),
+        snapGridSize(),
+        refreshSelection,
+      );
+    const bounds = {
+      ...common,
+      left: shape.x!,
+      top: shape.y!,
+      width: shape.width!,
+      height: shape.height!,
+      originX: "left" as const,
+      originY: "top" as const,
+    };
+    const object =
+      shape.type === "rect"
+        ? new Rect({
+            ...bounds,
+            rx: Math.min(shape.radius, shape.width! / 2, shape.height! / 2),
+            ry: Math.min(shape.radius, shape.width! / 2, shape.height! / 2),
+          })
+        : shape.type === "ellipse"
+          ? new Ellipse({
+              ...bounds,
+              rx: shape.width! / 2,
+              ry: shape.height! / 2,
+            })
+          : new Triangle(bounds);
+    return prepareObject(object, snapGridSize(), refreshSelection);
+  }
+
+  function sceneContext(activePalette: AiPalette): AiSceneContext {
+    const canvas = canvasRef.current;
+    const objects = canvas?.getObjects() ?? [];
+    const active = new Set(canvas?.getActiveObjects() ?? []);
+    return {
+      canvas: {
+        width: canvasWidthRef.current,
+        height: canvasHeightRef.current,
+      },
+      objects: objects.map((object, zIndex) => {
+        const item = object as FabricObject & { id?: string; name?: string };
+        const bounds = object.getBoundingRect();
+        return {
+          id: ensureObjectId(object),
+          type: object.type,
+          name: item.name || object.type,
+          bounds: {
+            left: bounds.left,
+            top: bounds.top,
+            width: bounds.width,
+            height: bounds.height,
+          },
+          rotation: object.angle,
+          zIndex,
+          fill: typeof object.fill === "string" ? object.fill : null,
+          stroke: typeof object.stroke === "string" ? object.stroke : null,
+          strokeWidth: object.strokeWidth,
+          radius: object instanceof Rect ? visualRadius(object) : null,
+        };
+      }),
+      selectedObjectIds: objects
+        .filter((object) => active.has(object))
+        .map(ensureObjectId),
+      activePalette,
+      sceneVersion: changeVersion,
+    };
+  }
+
+  function applyAiCommands(commands: AiCommand[]) {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const byId = new Map(
+      canvas.getObjects().map((object) => [ensureObjectId(object), object]),
+    );
+    let lastCreated: FabricObject | null = null;
+    let changed = false;
+    restoring.current = true;
+    try {
+      for (const command of commands) {
+        if (command.kind === "create_shape") {
+          lastCreated = createAiShape(command.shape);
+          canvas.add(lastCreated);
+          changed = true;
+        } else if (command.kind === "create_asset") {
+          const group = new Group(command.children.map(createAiShape));
+          Object.assign(group, {
+            name: command.groupName,
+            id: crypto.randomUUID(),
+          });
+          lastCreated = prepareObject(group, snapGridSize(), refreshSelection);
+          canvas.add(lastCreated);
+          changed = true;
+        } else if (command.kind === "recolor_objects") {
+          command.changes.forEach((change) => {
+            const object = byId.get(change.objectId);
+            if (object) {
+              setObjectPaint(object, change.fill, change.stroke);
+              changed = true;
+            }
+          });
+        }
+      }
+      if (lastCreated) canvas.setActiveObject(lastCreated);
+      if (changed) canvas.requestRenderAll();
+    } finally {
+      restoring.current = false;
+    }
+    if (changed) {
+      commit();
+      refreshSelection();
+    }
+  }
+
   function selectionSvg() {
     const object = canvasRef.current?.getActiveObject();
     if (!object) return null;
     const box = object.getBoundingRect();
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.ceil(box.width)}" height="${Math.ceil(box.height)}" viewBox="${box.left} ${box.top} ${box.width} ${box.height}">${object.toSVG()}</svg>`;
+    const svg = addObjectNames(object.toSVG(), [object]);
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.ceil(box.width)}" height="${Math.ceil(box.height)}" viewBox="${box.left} ${box.top} ${box.width} ${box.height}">${svg}</svg>`;
   }
 
   function toSvg(transparent = false, bounds?: ShapeBounds) {
@@ -898,7 +1032,7 @@ export function useCanvasEditor(project: Project | null) {
       },
     });
     canvas.backgroundColor = background;
-    return svg;
+    return addObjectNames(svg, canvas.getObjects());
   }
 
   function exportSvg() {
@@ -1056,6 +1190,8 @@ export function useCanvasEditor(project: Project | null) {
     updatePosition,
     updateSize,
     addSvg,
+    sceneContext,
+    applyAiCommands,
     selectionSvg,
     toSvg,
     exportSvg,
@@ -1097,6 +1233,7 @@ function prepareObject(
   radiusGridSize = 0,
   onChange?: () => void,
 ) {
+  ensureObjectId(object);
   if (object.stroke) object.set("strokeUniform", true);
   if (object instanceof Rect) {
     setVisualRadius(
@@ -1110,4 +1247,43 @@ function prepareObject(
       .getObjects()
       .forEach((child) => prepareObject(child, radiusGridSize, onChange));
   return object;
+}
+
+function ensureObjectId(object: FabricObject) {
+  const item = object as FabricObject & { id?: string };
+  if (!item.id) item.id = crypto.randomUUID();
+  return item.id;
+}
+
+function setObjectPaint(
+  object: FabricObject,
+  fill: string | null,
+  stroke: string | null,
+) {
+  object.set({ fill, stroke });
+  if (object instanceof Group)
+    object.getObjects().forEach((child) => setObjectPaint(child, fill, stroke));
+}
+
+function addObjectNames(svg: string, objects: FabricObject[]) {
+  return objects.reduce((value, object) => {
+    const item = object as FabricObject & { id?: string; name?: string };
+    if (!item.id || !item.name) return value;
+    const id = item.id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const name = item.name.replace(
+      /[&<>"']/g,
+      (character) =>
+        ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&apos;",
+        })[character] ?? character,
+    );
+    return value.replace(
+      new RegExp(`id="${id}"`),
+      `id="${item.id}" data-name="${name}"`,
+    );
+  }, svg);
 }
