@@ -19,6 +19,7 @@ type InspectorProps = {
   radius: number;
   onRadiusChange: (value: number) => void;
   onPositionChange: (key: "left" | "top", value: number) => void;
+  onSizeChange: (key: "width" | "height", value: number) => void;
   onPaletteColor: (value: string | null, target: "fill" | "stroke") => void;
 };
 
@@ -29,6 +30,7 @@ export function Inspector({
   radius,
   onRadiusChange,
   onPositionChange,
+  onSizeChange,
   onPaletteColor,
 }: InspectorProps) {
   const [palettes, setPalettes] = useState(() =>
@@ -403,6 +405,34 @@ export function Inspector({
                 value={Math.round(selected.top ?? 0)}
                 onChange={(event) =>
                   onPositionChange("top", Number(event.target.value))
+                }
+              />
+            </label>
+          </div>
+          <div className="inspector-grid">
+            <label>
+              <span>W</span>
+              <input
+                type="number"
+                min="1"
+                value={Math.round(
+                  (selected.width ?? 0) * Math.abs(selected.scaleX ?? 1),
+                )}
+                onChange={(event) =>
+                  onSizeChange("width", Number(event.target.value))
+                }
+              />
+            </label>
+            <label>
+              <span>H</span>
+              <input
+                type="number"
+                min="1"
+                value={Math.round(
+                  (selected.height ?? 0) * Math.abs(selected.scaleY ?? 1),
+                )}
+                onChange={(event) =>
+                  onSizeChange("height", Number(event.target.value))
                 }
               />
             </label>

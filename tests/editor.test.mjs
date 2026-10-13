@@ -24,6 +24,7 @@ import {
   editorShortcut,
   focusViewport,
   panViewport,
+  resizeAxes,
   snapValue,
   wheelZoom,
 } from "../src/renderer/src/editor/input.ts";
@@ -132,6 +133,12 @@ test("editor shortcuts and grid snapping stay predictable", () => {
   assert.equal(editorShortcut("d", true, false), "duplicate");
   assert.equal(snapValue(37, true, 20), 40);
   assert.equal(snapValue(37, false, 20), 37);
+});
+
+test("side resize changes only its own axis", () => {
+  assert.deepEqual(resizeAxes("mr"), { width: true, height: false });
+  assert.deepEqual(resizeAxes("mb"), { width: false, height: true });
+  assert.deepEqual(resizeAxes("br"), { width: true, height: true });
 });
 
 test("infinite workspace pan and zoom preserve viewport scale", () => {

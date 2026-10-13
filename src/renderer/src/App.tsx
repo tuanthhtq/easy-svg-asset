@@ -265,6 +265,7 @@ export function App() {
             editor.updateStyle("rx", value);
           }}
           onPositionChange={editor.updatePosition}
+          onSizeChange={editor.updateSize}
           onPaletteColor={(value, target) => {
             if (target === "fill") editor.setFill(value);
             else editor.setStroke(value);

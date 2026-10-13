@@ -31,6 +31,13 @@ export function snapValue(value: number, enabled: boolean, size: number) {
   return enabled ? Math.round(value / size) * size : value;
 }
 
+export function resizeAxes(corner?: string) {
+  return {
+    width: corner !== "mt" && corner !== "mb",
+    height: corner !== "ml" && corner !== "mr",
+  };
+}
+
 export function clampZoom(value: number) {
   return Math.min(8, Math.max(0.1, value));
 }

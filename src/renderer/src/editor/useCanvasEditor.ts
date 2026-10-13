@@ -22,6 +22,7 @@ import {
   editorShortcut,
   focusViewport,
   panViewport,
+  resizeAxes,
   snapValue,
   wheelZoom,
   type ViewportTransform,
@@ -270,18 +271,23 @@ export function useCanvasEditor(project: Project | null) {
           transform.originX,
           transform.originY,
         );
-        const width = snapValue(
-          target.getScaledWidth(),
-          true,
-          gridSizeRef.current,
-        );
-        const height = snapValue(
-          target.getScaledHeight(),
-          true,
-          gridSizeRef.current,
-        );
-        if (target.width) target.set("scaleX", width / target.width);
-        if (target.height) target.set("scaleY", height / target.height);
+        const axes = resizeAxes(transform.corner);
+        if (axes.width && target.width) {
+          const width = snapValue(
+            target.width * Math.abs(target.scaleX),
+            true,
+            gridSizeRef.current,
+          );
+          target.set("scaleX", width / target.width);
+        }
+        if (axes.height && target.height) {
+          const height = snapValue(
+            target.height * Math.abs(target.scaleY),
+            true,
+            gridSizeRef.current,
+          );
+          target.set("scaleY", height / target.height);
+        }
         target.setPositionByOrigin(
           anchor,
           transform.originX,
@@ -739,6 +745,21 @@ export function useCanvasEditor(project: Project | null) {
     setSelected(object);
   }
 
+  function updateSize(key: "width" | "height", value: number) {
+    const object = canvasRef.current?.getActiveObject();
+    const baseSize = object?.[key];
+    if (!object || !baseSize || !Number.isFinite(value) || value <= 0) return;
+    const size = snapValue(value, snapToGridRef.current, gridSizeRef.current);
+    const scaleKey = key === "width" ? "scaleX" : "scaleY";
+    const direction = Math.sign(object[scaleKey] ?? 1) || 1;
+    object.set(scaleKey, (direction * Math.max(1, size)) / baseSize);
+    normalizeObject(object, snapGridSize());
+    object.setCoords();
+    canvasRef.current?.requestRenderAll();
+    commit();
+    refreshSelection();
+  }
+
   function snapPointToGrid(point: ShapePoint) {
     return {
       x: snapValue(point.x, snapToGridRef.current, gridSizeRef.current),
@@ -883,14 +904,15 @@ export function useCanvasEditor(project: Project | null) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     canvas.setActiveObject(object);
-    canvas.setViewportTransform(
-      focusViewport(
-        canvas.viewportTransform as ViewportTransform,
-        object.getCenterPoint(),
-        canvas.getWidth(),
-        canvas.getHeight(),
-      ),
-    );
+    if (!object.isOnScreen())
+      canvas.setViewportTransform(
+        focusViewport(
+          canvas.viewportTransform as ViewportTransform,
+          object.getCenterPoint(),
+          canvas.getWidth(),
+          canvas.getHeight(),
+        ),
+      );
     canvas.requestRenderAll();
     refreshSelection();
   }
@@ -1018,6 +1040,7 @@ export function useCanvasEditor(project: Project | null) {
     load,
     updateStyle,
     updatePosition,
+    updateSize,
     addSvg,
     selectionSvg,
     toSvg,
