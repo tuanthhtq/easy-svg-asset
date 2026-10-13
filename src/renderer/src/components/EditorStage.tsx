@@ -1,4 +1,4 @@
-import { useEffect, useState, type RefObject } from "react";
+import type { RefObject } from "react";
 import type { ContextMenu, LayerAction } from "../editor/useCanvasEditor";
 import {
   ArrowDown,
@@ -9,6 +9,7 @@ import {
   Plus,
   Ungroup,
 } from "lucide-react";
+import { AppInput } from "./AppInput";
 
 type EditorStageProps = {
   canvasEl: RefObject<HTMLCanvasElement | null>;
@@ -57,17 +58,6 @@ export function EditorStage({
   onGridSizeChange,
   onAutoSaveDelayChange,
 }: EditorStageProps) {
-  const [gridDraft, setGridDraft] = useState(String(gridSize));
-
-  useEffect(() => setGridDraft(String(gridSize)), [gridSize]);
-
-  function commitGridSize() {
-    const value = Math.round(Number(gridDraft));
-    const next = Number.isFinite(value) && value > 0 ? value : 2;
-    setGridDraft(String(next));
-    onGridSizeChange(next);
-  }
-
   return (
     <section className="stage-wrap">
       <header className="canvas-header">
@@ -85,32 +75,25 @@ export function EditorStage({
             <span>Snap</span>
           </label>
           {snapToGrid && (
-            <label>
-              <span>Grid</span>
-              <input
-                type="number"
-                value={gridDraft}
-                onChange={(event) => setGridDraft(event.target.value)}
-                onBlur={commitGridSize}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") event.currentTarget.blur();
-                }}
-              />
-            </label>
-          )}
-          <label>
-            <span>Auto-save</span>
-            <input
-              type="number"
-              min="100"
-              max="10000"
-              step="100"
-              value={autoSaveDelay}
-              onChange={(event) =>
-                onAutoSaveDelayChange(Number(event.target.value))
-              }
+            <AppInput
+              label="Grid"
+              value={gridSize}
+              fallback={2}
+              min={1}
+              integer
+              onCommit={onGridSizeChange}
             />
-          </label>
+          )}
+          <AppInput
+            label="Auto-save"
+            min={100}
+            max={10000}
+            step={100}
+            value={autoSaveDelay}
+            fallback={500}
+            integer
+            onCommit={onAutoSaveDelayChange}
+          />
         </div>
       </header>
       {hasSelection && (

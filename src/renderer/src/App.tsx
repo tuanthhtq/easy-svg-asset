@@ -259,7 +259,11 @@ export function App() {
           selected={editor.selected}
           fill={editor.fill}
           stroke={editor.stroke}
+          strokeWidth={editor.strokeWidth}
           radius={editor.radius}
+          onStrokeWidthChange={(value) =>
+            editor.updateStyle("strokeWidth", value)
+          }
           onRadiusChange={(value) => {
             editor.setRadius(value);
             editor.updateStyle("rx", value);

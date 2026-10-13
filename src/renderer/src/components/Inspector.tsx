@@ -9,6 +9,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { parsePalettePresets, type PalettePreset } from "../editor/palette";
+import { AppInput } from "./AppInput";
 
 const PALETTE_STORAGE_KEY = "easy-svg-asset-palettes";
 
@@ -16,7 +17,9 @@ type InspectorProps = {
   selected: FabricObject | null;
   fill: string | null;
   stroke: string | null;
+  strokeWidth: number;
   radius: number;
+  onStrokeWidthChange: (value: number) => void;
   onRadiusChange: (value: number) => void;
   onPositionChange: (key: "left" | "top", value: number) => void;
   onSizeChange: (key: "width" | "height", value: number) => void;
@@ -27,7 +30,9 @@ export function Inspector({
   selected,
   fill,
   stroke,
+  strokeWidth,
   radius,
+  onStrokeWidthChange,
   onRadiusChange,
   onPositionChange,
   onSizeChange,
@@ -330,6 +335,14 @@ export function Inspector({
             Stroke
           </button>
         </div>
+        <AppInput
+          label="Stroke width"
+          min={0}
+          step={0.5}
+          value={strokeWidth}
+          fallback={2}
+          onCommit={onStrokeWidthChange}
+        />
         <input
           ref={colorInputRef}
           className="palette-color-editor"
@@ -376,66 +389,51 @@ export function Inspector({
       {selected ? (
         <>
           {selected.type === "rect" && (
-            <label>
-              <span>Radius</span>
-              <input
-                type="number"
-                min="0"
-                max="100"
-                value={radius}
-                onChange={(event) => onRadiusChange(Number(event.target.value))}
-              />
-            </label>
+            <AppInput
+              label="Radius"
+              min={0}
+              value={radius}
+              fallback={0}
+              onCommit={onRadiusChange}
+            />
           )}
           <div className="inspector-grid">
-            <label>
-              <span>X</span>
-              <input
-                type="number"
-                value={Math.round(selected.left ?? 0)}
-                onChange={(event) =>
-                  onPositionChange("left", Number(event.target.value))
-                }
-              />
-            </label>
-            <label>
-              <span>Y</span>
-              <input
-                type="number"
-                value={Math.round(selected.top ?? 0)}
-                onChange={(event) =>
-                  onPositionChange("top", Number(event.target.value))
-                }
-              />
-            </label>
+            <AppInput
+              label="X"
+              value={Math.round(selected.left ?? 0)}
+              fallback={0}
+              integer
+              onCommit={(value) => onPositionChange("left", value)}
+            />
+            <AppInput
+              label="Y"
+              value={Math.round(selected.top ?? 0)}
+              fallback={0}
+              integer
+              onCommit={(value) => onPositionChange("top", value)}
+            />
           </div>
           <div className="inspector-grid">
-            <label>
-              <span>W</span>
-              <input
-                type="number"
-                min="1"
-                value={Math.round(
-                  (selected.width ?? 0) * Math.abs(selected.scaleX ?? 1),
-                )}
-                onChange={(event) =>
-                  onSizeChange("width", Number(event.target.value))
-                }
-              />
-            </label>
-            <label>
-              <span>H</span>
-              <input
-                type="number"
-                min="1"
-                value={Math.round(
-                  (selected.height ?? 0) * Math.abs(selected.scaleY ?? 1),
-                )}
-                onChange={(event) =>
-                  onSizeChange("height", Number(event.target.value))
-                }
-              />
-            </label>
+            <AppInput
+              label="W"
+              min={1}
+              value={Math.round(
+                (selected.width ?? 0) * Math.abs(selected.scaleX ?? 1),
+              )}
+              fallback={1}
+              integer
+              onCommit={(value) => onSizeChange("width", value)}
+            />
+            <AppInput
+              label="H"
+              min={1}
+              value={Math.round(
+                (selected.height ?? 0) * Math.abs(selected.scaleY ?? 1),
+              )}
+              fallback={1}
+              integer
+              onCommit={(value) => onSizeChange("height", value)}
+            />
           </div>
         </>
       ) : (

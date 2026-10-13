@@ -64,6 +64,7 @@ export function useCanvasEditor(project: Project | null) {
   const [selected, setSelected] = useState<FabricObject | null>(null);
   const [fill, setFill] = useState<string | null>("#ff6b4a");
   const [stroke, setStroke] = useState<string | null>("#17191f");
+  const [strokeWidth, setStrokeWidth] = useState(2);
   const [radius, setRadius] = useState(16);
   const [zoom, setZoom] = useState(1);
   const [snapToGrid, setSnapToGrid] = useState(false);
@@ -73,6 +74,7 @@ export function useCanvasEditor(project: Project | null) {
   const [, render] = useState(0);
   const fillRef = useRef(fill);
   const strokeRef = useRef(stroke);
+  const strokeWidthRef = useRef(strokeWidth);
   const canvasWidthRef = useRef(DEFAULT_CANVAS_WIDTH);
   const canvasHeightRef = useRef(DEFAULT_CANVAS_HEIGHT);
   const snapToGridRef = useRef(snapToGrid);
@@ -98,6 +100,7 @@ export function useCanvasEditor(project: Project | null) {
 
   fillRef.current = fill;
   strokeRef.current = stroke;
+  strokeWidthRef.current = strokeWidth;
   snapToGridRef.current = snapToGrid;
   gridSizeRef.current = gridSize;
 
@@ -129,7 +132,7 @@ export function useCanvasEditor(project: Project | null) {
     canvas.defaultCursor = selecting ? "default" : "crosshair";
     canvas.hoverCursor = selecting ? "move" : "crosshair";
     canvas.requestRenderAll();
-  }, [tool, stroke, snapToGrid, gridSize]);
+  }, [tool, stroke, strokeWidth, snapToGrid, gridSize]);
 
   function snapshot() {
     const canvas = canvasRef.current;
@@ -167,6 +170,8 @@ export function useCanvasEditor(project: Project | null) {
       setFill(object.fill);
     if (typeof object?.stroke === "string" || object?.stroke === null)
       setStroke(object.stroke);
+    if (typeof object?.strokeWidth === "number")
+      setStrokeWidth(object.strokeWidth);
     if (object instanceof Rect) setRadius(visualRadius(object));
     render((count) => count + 1);
   }
@@ -219,7 +224,7 @@ export function useCanvasEditor(project: Project | null) {
         }
         ctx.transform(scaleX, skewY, skewX, scaleY, translateX, translateY);
         ctx.beginPath();
-        ctx.strokeStyle = "rgba(236, 234, 229, 0.14)";
+        ctx.strokeStyle = "rgba(236, 234, 229, 0.05)";
         ctx.lineWidth = 1 / Math.max(scaleX, scaleY);
         const left = -translateX / scaleX - gridSizeRef.current;
         const top = -translateY / scaleY - gridSizeRef.current;
@@ -420,6 +425,7 @@ export function useCanvasEditor(project: Project | null) {
         selectable: true,
         fill: fillRef.current,
         stroke: strokeRef.current,
+        strokeWidth: strokeWidthRef.current,
       });
       canvas.setActiveObject(draft.object);
       canvas.requestRenderAll();
@@ -572,7 +578,7 @@ export function useCanvasEditor(project: Project | null) {
       originY: "top" as const,
       fill: fillRef.current,
       stroke: strokeRef.current ?? PREVIEW_STROKE,
-      strokeWidth: 2,
+      strokeWidth: strokeWidthRef.current,
       strokeUniform: true,
     };
     return kind === "rect"
@@ -650,6 +656,7 @@ export function useCanvasEditor(project: Project | null) {
       draft.preview.set({
         points,
         stroke: strokeRef.current ?? PREVIEW_STROKE,
+        strokeWidth: Math.max(1, strokeWidthRef.current),
       });
       draft.preview.setBoundingBox(true);
       draft.preview.setCoords();
@@ -657,7 +664,7 @@ export function useCanvasEditor(project: Project | null) {
       draft.preview = new Polyline(points, {
         fill: "",
         stroke: strokeRef.current ?? PREVIEW_STROKE,
-        strokeWidth: 2,
+        strokeWidth: Math.max(1, strokeWidthRef.current),
         evented: false,
         excludeFromExport: true,
         selectable: false,
@@ -687,7 +694,7 @@ export function useCanvasEditor(project: Project | null) {
     const polygon = new Polygon(draft.points, {
       fill: fillRef.current,
       stroke: strokeRef.current,
-      strokeWidth: 2,
+      strokeWidth: strokeWidthRef.current,
       strokeUniform: true,
     });
     restoring.current = true;
@@ -704,9 +711,15 @@ export function useCanvasEditor(project: Project | null) {
   }
 
   function updateStyle(
-    key: "fill" | "stroke" | "rx",
+    key: "fill" | "stroke" | "strokeWidth" | "rx",
     value: string | number | null,
   ) {
+    if (
+      key === "strokeWidth" &&
+      (typeof value !== "number" || !Number.isFinite(value) || value < 0)
+    )
+      return;
+    if (key === "strokeWidth") setStrokeWidth(Number(value));
     const object = canvasRef.current?.getActiveObject();
     if (!object) return;
     const next =
@@ -1022,6 +1035,7 @@ export function useCanvasEditor(project: Project | null) {
     setFill,
     stroke,
     setStroke,
+    strokeWidth,
     radius,
     setRadius,
     zoom,

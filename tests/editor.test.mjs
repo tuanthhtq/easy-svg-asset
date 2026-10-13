@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Group, Point, Rect } from "fabric";
 import {
+  liveInputValue,
+  normalizeInputValue,
+} from "../src/renderer/src/components/appInputValue.ts";
+import {
   isFlattened,
   markFlattened,
   restoreFlattened,
@@ -82,6 +86,18 @@ test("null paints export as no fill and no stroke", () => {
   assert.match(svg, /stroke: none/);
 });
 
+test("SVG export preserves stroke width", () => {
+  const svg = new Rect({
+    width: 100,
+    height: 100,
+    stroke: "#000000",
+    strokeWidth: 7.5,
+    strokeUniform: true,
+  }).toSVG();
+  assert.match(svg, /stroke-width: 7\.5/);
+  assert.match(svg, /vector-effect="non-scaling-stroke"/);
+});
+
 test("rectangle radius handle is visible below the top-left scale handle", () => {
   const rect = enableRadiusControl(new Rect({ width: 180, height: 120 }));
   const control = rect.controls.radius;
@@ -133,6 +149,17 @@ test("editor shortcuts and grid snapping stay predictable", () => {
   assert.equal(editorShortcut("d", true, false), "duplicate");
   assert.equal(snapValue(37, true, 20), 40);
   assert.equal(snapValue(37, false, 20), 37);
+});
+
+test("app inputs commit like the grid size field", () => {
+  assert.equal(normalizeInputValue("", 2, 1, undefined, true), 2);
+  assert.equal(normalizeInputValue("-4", 2, 1, undefined, true), 2);
+  assert.equal(normalizeInputValue("3.6", 2, 1, undefined, true), 4);
+  assert.equal(normalizeInputValue("-4", 0), -4);
+  assert.equal(liveInputValue("", 1), null);
+  assert.equal(liveInputValue("1.", 1), null);
+  assert.equal(liveInputValue("-4", 0), null);
+  assert.equal(liveInputValue("4", 1, undefined, true), 4);
 });
 
 test("side resize changes only its own axis", () => {
