@@ -33,7 +33,10 @@ import {
   snapValue,
   wheelZoom,
 } from "../src/renderer/src/editor/input.ts";
-import { parsePalettePresets } from "../src/renderer/src/editor/palette.ts";
+import {
+  parsePalettePresets,
+  resolvePaletteId,
+} from "../src/renderer/src/editor/palette.ts";
 import {
   aiRectRadius,
   applyAiPaletteUpdate,
@@ -236,6 +239,16 @@ test("palette presets reject invalid saved data", () => {
     )[0].id,
     "warm",
   );
+});
+
+test("active palette selection survives restart with a safe fallback", () => {
+  const palettes = [
+    { id: "warm", name: "Warm", colors: ["#123456"] },
+    { id: "farm", name: "Farm", colors: ["#abcdef"] },
+  ];
+  assert.equal(resolvePaletteId(palettes, "farm"), "farm");
+  assert.equal(resolvePaletteId(palettes, "missing"), "warm");
+  assert.equal(resolvePaletteId(palettes, null), "warm");
 });
 
 test("AI plan validation rejects overlap and palette violations", () => {

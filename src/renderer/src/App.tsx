@@ -18,9 +18,14 @@ import { ToolRail } from "./components/ToolRail";
 import { Settings } from "./components/Settings";
 import { Welcome } from "./components/Welcome";
 import { useCanvasEditor } from "./editor/useCanvasEditor";
-import { parsePalettePresets, type PalettePreset } from "./editor/palette";
+import {
+  parsePalettePresets,
+  resolvePaletteId,
+  type PalettePreset,
+} from "./editor/palette";
 
 const PALETTE_STORAGE_KEY = "easy-svg-asset-palettes";
+const ACTIVE_PALETTE_STORAGE_KEY = "easy-svg-asset-active-palette";
 const DEFAULT_APP_SETTINGS: AppSettings = {
   autoSaveDelay: 500,
   aiApiUrl: "https://api.openai.com/v1/responses",
@@ -47,7 +52,12 @@ export function App() {
   const [palettes, setPalettes] = useState<PalettePreset[]>(() =>
     parsePalettePresets(localStorage.getItem(PALETTE_STORAGE_KEY)),
   );
-  const [paletteId, setPaletteId] = useState(palettes[0].id);
+  const [paletteId, setPaletteId] = useState(() =>
+    resolvePaletteId(
+      palettes,
+      localStorage.getItem(ACTIVE_PALETTE_STORAGE_KEY),
+    ),
+  );
   const [panel, setPanel] = useState<Panel>("layers");
   const editor = useCanvasEditor(project);
 
@@ -67,6 +77,12 @@ export function App() {
   useEffect(() => {
     localStorage.setItem(PALETTE_STORAGE_KEY, JSON.stringify(palettes));
   }, [palettes]);
+
+  useEffect(() => {
+    const resolved = resolvePaletteId(palettes, paletteId);
+    if (resolved !== paletteId) setPaletteId(resolved);
+    else localStorage.setItem(ACTIVE_PALETTE_STORAGE_KEY, paletteId);
+  }, [paletteId, palettes]);
 
   useEffect(() => {
     if (!project) return;
