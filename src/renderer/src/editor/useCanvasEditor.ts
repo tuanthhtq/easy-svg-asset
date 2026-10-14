@@ -21,6 +21,7 @@ import type {
   AiSceneContext,
   AiShapeSpec,
 } from "../../../shared/ai";
+import { aiRectRadius } from "../../../shared/ai";
 import { isFlattened, markFlattened, restoreFlattened } from "./flatten";
 import { History } from "./history";
 import {
@@ -968,8 +969,8 @@ export function useCanvasEditor(project: Project | null) {
       shape.type === "rect"
         ? new Rect({
             ...bounds,
-            rx: Math.min(shape.radius, shape.width! / 2, shape.height! / 2),
-            ry: Math.min(shape.radius, shape.width! / 2, shape.height! / 2),
+            rx: aiRectRadius(radiusRef.current, shape.width!, shape.height!),
+            ry: aiRectRadius(radiusRef.current, shape.width!, shape.height!),
           })
         : shape.type === "ellipse"
           ? new Ellipse({

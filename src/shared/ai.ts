@@ -58,6 +58,10 @@ export type AiSceneObject = {
 
 export type AiPalette = { id: string; name: string; colors: string[] };
 export type AiPaletteUpdateMode = "replace" | "append" | "selected";
+
+export function aiRectRadius(radius: number, width: number, height: number) {
+  return Math.min(Math.max(radius, 0), width / 2, height / 2);
+}
 export type AiSceneContext = {
   canvas: { width: number; height: number };
   objects: AiSceneObject[];
@@ -422,11 +426,7 @@ export function validateAiPlan(
           throw new Error("AI created a shape with inconsistent stroke width");
         const radius =
           shape.type === "rect"
-            ? Math.min(
-                scene.settings.radius,
-                shape.width! / 2,
-                shape.height! / 2,
-              )
+            ? aiRectRadius(scene.settings.radius, shape.width!, shape.height!)
             : 0;
         if (Math.abs(shape.radius - radius) > 1e-6)
           throw new Error("AI created a shape with inconsistent corner radius");

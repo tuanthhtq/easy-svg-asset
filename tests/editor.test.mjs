@@ -35,6 +35,7 @@ import {
 } from "../src/renderer/src/editor/input.ts";
 import { parsePalettePresets } from "../src/renderer/src/editor/palette.ts";
 import {
+  aiRectRadius,
   applyAiPaletteUpdate,
   compactAiScene,
   parseAiCommand,
@@ -473,6 +474,12 @@ test("AI palette updates support replace, append, and selected colors", () => {
     () => applyAiPaletteUpdate(current, proposed, "selected"),
     /Select at least one color/,
   );
+});
+
+test("AI rectangles use the authoritative radius within their bounds", () => {
+  assert.equal(aiRectRadius(16, 40, 20), 10);
+  assert.equal(aiRectRadius(6, 40, 20), 6);
+  assert.equal(aiRectRadius(-2, 40, 20), 0);
 });
 
 test("AI previews stay temporary until approval", () => {
