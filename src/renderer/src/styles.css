@@ -112,6 +112,20 @@ button svg {
   gap: 9px;
   padding: 0 12px 12px;
 }
+.ai-style-picker {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+}
+.ai-style-picker select,
+.ai-style-picker button {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 7px 9px;
+  color: var(--text);
+  background: var(--panel-2);
+}
 .ai-box textarea {
   resize: vertical;
   min-height: 76px;
@@ -246,6 +260,9 @@ button svg {
   background: var(--panel);
   box-shadow: var(--shadow);
 }
+.settings-dialog.wide {
+  width: min(820px, 100%);
+}
 .settings-heading {
   display: flex;
   align-items: start;
@@ -283,6 +300,165 @@ button svg {
   gap: 13px;
   align-content: start;
   min-height: 184px;
+}
+.settings-dialog.wide .settings-panel {
+  min-height: min(540px, calc(100dvh - 210px));
+}
+.style-preset-manager {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #181a1d;
+}
+.style-preset-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 8px;
+  border-right: 1px solid var(--line);
+  background: #15171a;
+}
+.style-preset-list-heading,
+.style-preset-editor-heading,
+.style-reference-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.style-preset-list-heading {
+  margin-bottom: 4px;
+  padding: 4px 5px;
+}
+.style-preset-list-heading button,
+.style-preset-editor-heading button,
+.style-reference-heading button,
+.style-reference-grid button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 6px;
+  color: var(--text);
+  background: var(--panel-2);
+}
+.style-preset-list > button {
+  display: grid;
+  gap: 2px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  padding: 8px;
+  color: var(--text);
+  text-align: left;
+  background: transparent;
+}
+.style-preset-list > button:hover,
+.style-preset-list > button.active {
+  border-color: var(--line);
+  background: var(--panel-2);
+}
+.style-preset-list > button small {
+  color: var(--muted);
+}
+.style-preset-editor {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+  overflow: auto;
+  padding: 14px;
+}
+.style-preset-editor-heading input {
+  width: min(360px, 100%);
+  border: 0;
+  padding: 0;
+  color: var(--text);
+  background: transparent;
+  font:
+    600 18px "Space Grotesk",
+    sans-serif;
+}
+.style-preset-editor-heading > div {
+  display: flex;
+  gap: 5px;
+}
+.style-preset-editor textarea {
+  resize: vertical;
+  min-height: 74px;
+}
+.style-rule-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.style-check {
+  display: flex !important;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+}
+.style-check input {
+  width: auto;
+}
+.style-reference-heading small {
+  color: var(--muted);
+}
+.style-reference-heading button {
+  gap: 6px;
+  padding-inline: 9px;
+}
+.style-reference-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.style-reference-grid figure {
+  position: relative;
+  min-width: 0;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 5px;
+  background: var(--panel-2);
+}
+.style-reference-grid img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 5px;
+  object-fit: cover;
+}
+.style-reference-grid figcaption {
+  overflow: hidden;
+  padding: 5px 2px 1px;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.style-reference-grid figure button {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  background: rgb(17 18 20 / 80%);
+}
+.style-reference-grid p {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 18px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  text-align: center;
+}
+.style-save {
+  justify-self: end;
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 12px;
 }
 .settings-dialog label {
   display: grid;

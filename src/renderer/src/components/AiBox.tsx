@@ -8,6 +8,7 @@ import {
   X,
 } from "lucide-react";
 import type { AiResponse, AiSceneContext } from "../../../shared/ai";
+import type { AiStylePreset } from "../../../shared/types";
 import { resizePromptImage } from "./promptImage";
 
 type AiBoxProps = {
@@ -15,9 +16,22 @@ type AiBoxProps = {
   onPreview: (response: AiResponse) => void;
   onApprove: (response: AiResponse) => boolean;
   onReject: () => void;
+  stylePresets: AiStylePreset[];
+  activeStylePresetId: string;
+  onStylePresetChange: (id: string) => void;
+  onManageStyles: () => void;
 };
 
-export function AiBox({ scene, onPreview, onApprove, onReject }: AiBoxProps) {
+export function AiBox({
+  scene,
+  onPreview,
+  onApprove,
+  onReject,
+  stylePresets,
+  activeStylePresetId,
+  onStylePresetChange,
+  onManageStyles,
+}: AiBoxProps) {
   const [open, setOpen] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [image, setImage] = useState<{ mimeType: string; data: string } | null>(
@@ -46,9 +60,23 @@ export function AiBox({ scene, onPreview, onApprove, onReject }: AiBoxProps) {
         onReject();
         setResponse(null);
       }
+      const preset =
+        stylePresets.find((item) => item.id === activeStylePresetId) ??
+        stylePresets[0];
+      if (!preset) throw new Error("Create an AI style preset first");
+      const referenceImages = await Promise.all(
+        preset.referenceImages.map(async (reference) => ({
+          ...reference,
+          ...(await window.studio.loadAiStyleReference(
+            preset.id,
+            reference.id,
+          )),
+        })),
+      );
       const next = await window.studio.runAi({
         prompt: prompt.trim(),
         image,
+        stylePreset: { ...preset, referenceImages },
         scene,
       });
       onPreview(next);
@@ -93,6 +121,20 @@ export function AiBox({ scene, onPreview, onApprove, onReject }: AiBoxProps) {
       </button>
       {open && (
         <div className="ai-box-content">
+          <div className="ai-style-picker">
+            <select
+              aria-label="AI style preset"
+              value={activeStylePresetId}
+              onChange={(event) => onStylePresetChange(event.target.value)}
+            >
+              {stylePresets.map((preset) => (
+                <option key={preset.id} value={preset.id}>
+                  {preset.name}
+                </option>
+              ))}
+            </select>
+            <button onClick={onManageStyles}>Manage</button>
+          </div>
           <textarea
             aria-label="AI prompt"
             value={prompt}

@@ -1,17 +1,35 @@
 import { useEffect, useState } from "react";
 import { AI_REASONING_EFFORTS } from "../../../shared/types";
 import type { AppSettings, AppSettingsInput } from "../../../shared/types";
+import type { AiStylePreset } from "../../../shared/types";
+import { AiStylePresetManager } from "./AiStylePresetManager";
 
 type SettingsProps = {
   settings: AppSettings;
+  initialTab: "general" | "ai" | "styles";
+  stylePresets: AiStylePreset[];
   onClose: () => void;
   onSave: (settings: AppSettingsInput) => Promise<void>;
+  onSaveStylePreset: (preset: AiStylePreset) => Promise<void>;
+  onDuplicateStylePreset: (id: string) => Promise<void>;
+  onDeleteStylePreset: (id: string) => Promise<void>;
+  onStylePresetsChange: (presets: AiStylePreset[]) => void;
 };
 
-export function Settings({ settings, onClose, onSave }: SettingsProps) {
+export function Settings({
+  settings,
+  initialTab,
+  stylePresets,
+  onClose,
+  onSave,
+  onSaveStylePreset,
+  onDuplicateStylePreset,
+  onDeleteStylePreset,
+  onStylePresetsChange,
+}: SettingsProps) {
   const [draft, setDraft] = useState<AppSettingsInput>({ ...settings });
   const [secret, setSecret] = useState("");
-  const [tab, setTab] = useState<"general" | "ai">("general");
+  const [tab, setTab] = useState<"general" | "ai" | "styles">(initialTab);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   useEffect(() => setDraft({ ...settings }), [settings]);
@@ -26,7 +44,8 @@ export function Settings({ settings, onClose, onSave }: SettingsProps) {
     setSaving(true);
     setError("");
     try {
-      await onSave({ ...draft, aiSecret: secret || undefined });
+      if (tab !== "styles")
+        await onSave({ ...draft, aiSecret: secret || undefined });
       onClose();
     } catch (cause) {
       setError(String(cause));
@@ -37,7 +56,9 @@ export function Settings({ settings, onClose, onSave }: SettingsProps) {
   return (
     <div className="settings-backdrop" role="presentation">
       <section
-        className="settings-dialog"
+        className={
+          tab === "styles" ? "settings-dialog wide" : "settings-dialog"
+        }
         role="dialog"
         aria-modal="true"
         aria-labelledby="settings-title"
@@ -66,9 +87,24 @@ export function Settings({ settings, onClose, onSave }: SettingsProps) {
           >
             AI Config
           </button>
+          <button
+            role="tab"
+            aria-selected={tab === "styles"}
+            onClick={() => setTab("styles")}
+          >
+            Style Presets
+          </button>
         </div>
         <div className="settings-panel" role="tabpanel">
-          {tab === "general" ? (
+          {tab === "styles" ? (
+            <AiStylePresetManager
+              presets={stylePresets}
+              onSave={onSaveStylePreset}
+              onDuplicate={onDuplicateStylePreset}
+              onDelete={onDeleteStylePreset}
+              onChange={onStylePresetsChange}
+            />
+          ) : tab === "general" ? (
             <label>
               Auto-save delay (ms)
               <input
@@ -149,7 +185,7 @@ export function Settings({ settings, onClose, onSave }: SettingsProps) {
             disabled={saving}
             onClick={() => void save()}
           >
-            {saving ? "Saving..." : "Save settings"}
+            {saving ? "Saving..." : tab === "styles" ? "Done" : "Save settings"}
           </button>
         </div>
       </section>

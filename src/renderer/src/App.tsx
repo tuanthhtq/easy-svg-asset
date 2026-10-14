@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import { DEFAULT_AI_STYLE_PRESET } from "../../shared/types";
 import type {
   AppSettings,
   AppSettingsInput,
+  AiStylePreset,
   LibraryShape,
   Project,
   ProjectSettings,
@@ -36,6 +38,12 @@ export function App() {
   const [openedName, setOpenedName] = useState<string | null>(null);
   const [settings, setSettings] = useState(DEFAULT_APP_SETTINGS);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<"general" | "ai" | "styles">(
+    "general",
+  );
+  const [stylePresets, setStylePresets] = useState<AiStylePreset[]>([
+    DEFAULT_AI_STYLE_PRESET,
+  ]);
   const [palettes, setPalettes] = useState<PalettePreset[]>(() =>
     parsePalettePresets(localStorage.getItem(PALETTE_STORAGE_KEY)),
   );
@@ -49,6 +57,10 @@ export function App() {
     void window.studio
       .getAppSettings()
       .then(setSettings)
+      .catch((error) => window.alert(String(error)));
+    void window.studio
+      .listAiStylePresets()
+      .then(setStylePresets)
       .catch((error) => window.alert(String(error)));
   }, []);
 
@@ -82,14 +94,36 @@ export function App() {
     setRecent(await window.studio.recentFolders());
   }
 
-  function saveProjectSettings(settings: ProjectSettings) {
-    void window.studio
-      .saveProjectSettings(settings)
-      .catch((error) => window.alert(String(error)));
+  async function saveProjectSettings(settings: ProjectSettings) {
+    try {
+      const next = await window.studio.saveProjectSettings(settings);
+      setProject((current) => (current?.root === next.root ? next : current));
+    } catch (error) {
+      window.alert(String(error));
+    }
   }
 
   async function saveAppSettings(next: AppSettingsInput) {
     setSettings(await window.studio.saveAppSettings(next));
+  }
+
+  async function saveAiStylePreset(preset: AiStylePreset) {
+    setStylePresets(await window.studio.saveAiStylePreset(preset));
+  }
+
+  async function duplicateAiStylePreset(id: string) {
+    setStylePresets(await window.studio.duplicateAiStylePreset(id));
+  }
+
+  async function deleteAiStylePreset(id: string) {
+    const next = await window.studio.deleteAiStylePreset(id);
+    setStylePresets(next);
+    if (project?.activeAiStylePresetId === id)
+      await saveProjectSettings({
+        snapToGrid: editor.snapToGrid,
+        gridSize: editor.gridSize,
+        activeAiStylePresetId: next[0]?.id ?? null,
+      });
   }
 
   async function openFolder() {
@@ -273,13 +307,22 @@ export function App() {
           recent={recent}
           onOpenFolder={() => void openFolder()}
           onOpenRecent={(folder) => void openRecent(folder)}
-          onOpenSettings={() => setSettingsOpen(true)}
+          onOpenSettings={() => {
+            setSettingsTab("general");
+            setSettingsOpen(true);
+          }}
         />
         {settingsOpen && (
           <Settings
             settings={settings}
+            initialTab={settingsTab}
+            stylePresets={stylePresets}
             onClose={() => setSettingsOpen(false)}
             onSave={saveAppSettings}
+            onSaveStylePreset={saveAiStylePreset}
+            onDuplicateStylePreset={duplicateAiStylePreset}
+            onDeleteStylePreset={deleteAiStylePreset}
+            onStylePresetsChange={setStylePresets}
           />
         )}
       </>
@@ -318,7 +361,10 @@ export function App() {
           onUndo={editor.undo}
           onRedo={editor.redo}
           onOpenFolder={() => void openFolder()}
-          onOpenSettings={() => setSettingsOpen(true)}
+          onOpenSettings={() => {
+            setSettingsTab("general");
+            setSettingsOpen(true);
+          }}
         />
         <EditorStage
           canvasEl={editor.canvasEl}
@@ -341,6 +387,25 @@ export function App() {
               onPreview={previewAi}
               onApprove={approveAi}
               onReject={editor.discardAiPreview}
+              stylePresets={stylePresets}
+              activeStylePresetId={
+                stylePresets.some(
+                  (preset) => preset.id === project.activeAiStylePresetId,
+                )
+                  ? project.activeAiStylePresetId!
+                  : (stylePresets[0]?.id ?? DEFAULT_AI_STYLE_PRESET.id)
+              }
+              onStylePresetChange={(activeAiStylePresetId) =>
+                void saveProjectSettings({
+                  snapToGrid: editor.snapToGrid,
+                  gridSize: editor.gridSize,
+                  activeAiStylePresetId,
+                })
+              }
+              onManageStyles={() => {
+                setSettingsTab("styles");
+                setSettingsOpen(true);
+              }}
             />
           }
           onLayer={editor.layer}
@@ -354,6 +419,7 @@ export function App() {
             saveProjectSettings({
               snapToGrid: value,
               gridSize: editor.gridSize,
+              activeAiStylePresetId: project.activeAiStylePresetId,
             });
           }}
           onGridSizeChange={(value) => {
@@ -361,6 +427,7 @@ export function App() {
             saveProjectSettings({
               snapToGrid: editor.snapToGrid,
               gridSize: value,
+              activeAiStylePresetId: project.activeAiStylePresetId,
             });
           }}
         />
@@ -393,8 +460,14 @@ export function App() {
       {settingsOpen && (
         <Settings
           settings={settings}
+          initialTab={settingsTab}
+          stylePresets={stylePresets}
           onClose={() => setSettingsOpen(false)}
           onSave={saveAppSettings}
+          onSaveStylePreset={saveAiStylePreset}
+          onDuplicateStylePreset={duplicateAiStylePreset}
+          onDeleteStylePreset={deleteAiStylePreset}
+          onStylePresetsChange={setStylePresets}
         />
       )}
     </main>

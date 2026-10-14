@@ -34,6 +34,15 @@ import type {
   RecentFolder,
 } from "../shared/types";
 import { initializeAiLogger } from "./ai-logger";
+import {
+  addAiStyleReference,
+  deleteAiStylePreset,
+  duplicateAiStylePreset,
+  listAiStylePresets,
+  loadAiStyleReference,
+  removeAiStyleReference,
+  saveAiStylePreset,
+} from "./ai-style-presets";
 import { runAi } from "./openai";
 import { getAppSettings, saveAppSettings } from "./settings";
 
@@ -197,12 +206,15 @@ function registerIpc() {
       typeof settings.snapToGrid !== "boolean" ||
       typeof settings.gridSize !== "number" ||
       !Number.isInteger(settings.gridSize) ||
-      settings.gridSize <= 0
+      settings.gridSize <= 0 ||
+      (settings.activeAiStylePresetId !== null &&
+        typeof settings.activeAiStylePresetId !== "string")
     )
       throw new Error("Invalid project settings");
     const next = await setProjectSettings(project, {
       snapToGrid: settings.snapToGrid,
       gridSize: settings.gridSize,
+      activeAiStylePresetId: settings.activeAiStylePresetId,
     });
     if (activeProject?.root === project.root) activeProject = next;
     return next;
@@ -269,6 +281,57 @@ function registerIpc() {
   ipcMain.handle("settings:get", () => getAppSettings());
   ipcMain.handle("settings:save", (_, value: unknown) =>
     saveAppSettings(value),
+  );
+  ipcMain.handle("ai-styles:list", () =>
+    listAiStylePresets(app.getPath("userData")),
+  );
+  ipcMain.handle("ai-styles:save", (_, value: unknown) =>
+    saveAiStylePreset(app.getPath("userData"), value),
+  );
+  ipcMain.handle("ai-styles:duplicate", (_, id: unknown) => {
+    if (typeof id !== "string") throw new Error("Invalid AI style preset ID");
+    return duplicateAiStylePreset(app.getPath("userData"), id);
+  });
+  ipcMain.handle("ai-styles:delete", (_, id: unknown) => {
+    if (typeof id !== "string") throw new Error("Invalid AI style preset ID");
+    return deleteAiStylePreset(app.getPath("userData"), id);
+  });
+  ipcMain.handle(
+    "ai-styles:reference-add",
+    (_, presetId: unknown, name: unknown, image: unknown) => {
+      if (typeof presetId !== "string" || typeof name !== "string")
+        throw new Error("Invalid AI style reference");
+      return addAiStyleReference(
+        app.getPath("userData"),
+        presetId,
+        name,
+        image as import("../shared/ai").AiImage,
+      );
+    },
+  );
+  ipcMain.handle(
+    "ai-styles:reference-remove",
+    (_, presetId: unknown, referenceId: unknown) => {
+      if (typeof presetId !== "string" || typeof referenceId !== "string")
+        throw new Error("Invalid AI style reference");
+      return removeAiStyleReference(
+        app.getPath("userData"),
+        presetId,
+        referenceId,
+      );
+    },
+  );
+  ipcMain.handle(
+    "ai-styles:reference-load",
+    (_, presetId: unknown, referenceId: unknown) => {
+      if (typeof presetId !== "string" || typeof referenceId !== "string")
+        throw new Error("Invalid AI style reference");
+      return loadAiStyleReference(
+        app.getPath("userData"),
+        presetId,
+        referenceId,
+      );
+    },
   );
   ipcMain.handle("ai:run", (_, value: unknown) => runAi(value));
 }

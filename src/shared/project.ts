@@ -7,6 +7,7 @@ export const manifestName = "project.json";
 export const DEFAULT_PROJECT_SETTINGS: ProjectSettings = {
   snapToGrid: false,
   gridSize: 2,
+  activeAiStylePresetId: null,
 };
 let projectWrites = Promise.resolve();
 export function projectManifest(root: string) {
@@ -43,10 +44,16 @@ export async function ensureProject(root: string): Promise<Project> {
         value.gridSize > 0
           ? value.gridSize
           : DEFAULT_PROJECT_SETTINGS.gridSize,
+      activeAiStylePresetId:
+        typeof value.activeAiStylePresetId === "string" ||
+        value.activeAiStylePresetId === null
+          ? value.activeAiStylePresetId
+          : DEFAULT_PROJECT_SETTINGS.activeAiStylePresetId,
     };
     if (
       value.snapToGrid !== project.snapToGrid ||
-      value.gridSize !== project.gridSize
+      value.gridSize !== project.gridSize ||
+      value.activeAiStylePresetId !== project.activeAiStylePresetId
     )
       await writeFile(manifest, JSON.stringify(project, null, 2));
     return project;

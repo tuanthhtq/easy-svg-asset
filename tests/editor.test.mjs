@@ -55,6 +55,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { initializeAiLogger, logAiEvent } from "../src/main/ai-logger.ts";
 import {
+  addAiStyleReference,
+  deleteAiStylePreset,
+  duplicateAiStylePreset,
+  listAiStylePresets,
+  loadAiStyleReference,
+  removeAiStyleReference,
+  saveAiStylePreset,
+} from "../src/main/ai-style-presets.ts";
+import {
   AI_REASONING_EFFORTS,
   isAiReasoningEffort,
 } from "../src/shared/types.ts";
@@ -529,14 +538,20 @@ test("opening any folder creates a manifest and records the active SVG", async (
     assert.equal(project.activeDocument, null);
     assert.equal(project.snapToGrid, false);
     assert.equal(project.gridSize, 2);
+    assert.equal(project.activeAiStylePresetId, null);
     await Promise.all([
       setActiveDocument(project, "icon.svg"),
-      setProjectSettings(project, { snapToGrid: true, gridSize: 12 }),
+      setProjectSettings(project, {
+        snapToGrid: true,
+        gridSize: 12,
+        activeAiStylePresetId: "cozy-farming",
+      }),
     ]);
     const manifest = JSON.parse(await readFile(project.manifest, "utf8"));
     assert.equal(manifest.activeDocument, "icon.svg");
     assert.equal(manifest.snapToGrid, true);
     assert.equal(manifest.gridSize, 12);
+    assert.equal(manifest.activeAiStylePresetId, "cozy-farming");
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -559,8 +574,10 @@ test("project settings survive reopening an older manifest", async () => {
     const manifest = JSON.parse(await readFile(reopened.manifest, "utf8"));
     assert.equal(reopened.snapToGrid, false);
     assert.equal(reopened.gridSize, 2);
+    assert.equal(reopened.activeAiStylePresetId, null);
     assert.equal(manifest.snapToGrid, false);
     assert.equal(manifest.gridSize, 2);
+    assert.equal(manifest.activeAiStylePresetId, null);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -583,6 +600,63 @@ test("AI logger writes JSON and retains only five app sessions", async () => {
     assert.equal(latest.appVersion, "test");
     assert.equal(latest.events[0].type, "test");
     assert.equal(latest.events[0].data.index, 5);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("global AI style presets persist rules and bounded references", async () => {
+  const root = await mkdtemp(join(tmpdir(), "easy-svg-style-presets-"));
+  try {
+    const created = await saveAiStylePreset(root, {
+      id: "cozy-farming",
+      name: "Cozy Farming",
+      instruction: "Keep silhouettes readable.",
+      terrainView: "orthographic_top_down",
+      propView: "three_quarter_top_down",
+      buildingView: "three_quarter_top_down",
+      noVisibleSideFacesForTerrain: true,
+      detailLevel: "minimal",
+      referenceImages: [],
+    });
+    assert.equal(
+      created.some((preset) => preset.id === "cozy-farming"),
+      true,
+    );
+    for (let index = 0; index < 3; index++)
+      await addAiStyleReference(root, "cozy-farming", `sample-${index}.png`, {
+        mimeType: "image/png",
+        data: Buffer.from(`reference-${index}`).toString("base64"),
+      });
+    const listed = await listAiStylePresets(root);
+    const preset = listed.find((item) => item.id === "cozy-farming");
+    assert.equal(preset?.referenceImages.length, 3);
+    const loaded = await loadAiStyleReference(
+      root,
+      "cozy-farming",
+      preset.referenceImages[0].id,
+    );
+    assert.equal(Buffer.from(loaded.data, "base64").toString(), "reference-0");
+    await assert.rejects(
+      addAiStyleReference(root, "cozy-farming", "sample-4.png", {
+        mimeType: "image/png",
+        data: Buffer.from("reference-4").toString("base64"),
+      }),
+      /up to 3 reference images/,
+    );
+    const copied = await duplicateAiStylePreset(root, "cozy-farming");
+    const copy = copied.find((preset) => preset.name === "Cozy Farming Copy");
+    assert.ok(copy);
+    await removeAiStyleReference(
+      root,
+      "cozy-farming",
+      preset.referenceImages[0].id,
+    );
+    const remaining = await deleteAiStylePreset(root, copy.id);
+    assert.equal(
+      remaining.some((preset) => preset.id === copy.id),
+      false,
+    );
   } finally {
     await rm(root, { recursive: true, force: true });
   }

@@ -71,9 +71,26 @@ export type AiSceneContext = {
   sceneVersion: number;
 };
 export type AiImage = { mimeType: string; data: string };
+export type AiStylePrompt = {
+  id: string;
+  name: string;
+  instruction: string;
+  terrainView: string;
+  propView: string;
+  buildingView: string;
+  noVisibleSideFacesForTerrain: boolean;
+  detailLevel: string;
+  referenceImages: Array<{
+    id: string;
+    name: string;
+    mimeType: string;
+    data: string;
+  }>;
+};
 export type AiRequest = {
   prompt: string;
   image: AiImage | null;
+  stylePreset: AiStylePrompt;
   scene: AiSceneContext;
 };
 export type AiResponse = {
