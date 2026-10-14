@@ -1,6 +1,7 @@
 import { app, safeStorage } from "electron";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { isAiReasoningEffort } from "../shared/types";
 import type { AppSettings, AppSettingsInput } from "../shared/types";
 
 type StoredSettings = Omit<AppSettings, "hasAiSecret"> & {
@@ -11,6 +12,7 @@ const DEFAULT_SETTINGS: StoredSettings = {
   autoSaveDelay: 500,
   aiApiUrl: "https://api.openai.com/v1/responses",
   aiModel: "",
+  aiReasoningEffort: "low",
 };
 let settingsWrites = Promise.resolve();
 
@@ -21,6 +23,7 @@ function publicSettings(settings: StoredSettings): AppSettings {
     autoSaveDelay: settings.autoSaveDelay,
     aiApiUrl: settings.aiApiUrl,
     aiModel: settings.aiModel,
+    aiReasoningEffort: settings.aiReasoningEffort,
     hasAiSecret: Boolean(settings.encryptedAiSecret),
   };
 }
@@ -43,6 +46,9 @@ async function storedSettings(): Promise<StoredSettings> {
           ? item.aiApiUrl
           : DEFAULT_SETTINGS.aiApiUrl,
       aiModel: typeof item.aiModel === "string" ? item.aiModel : "",
+      aiReasoningEffort: isAiReasoningEffort(item.aiReasoningEffort)
+        ? item.aiReasoningEffort
+        : DEFAULT_SETTINGS.aiReasoningEffort,
       encryptedAiSecret:
         typeof item.encryptedAiSecret === "string"
           ? item.encryptedAiSecret
@@ -76,6 +82,8 @@ export async function saveAppSettings(value: unknown) {
     throw new Error("OpenAI API URL must use HTTP or HTTPS");
   if (typeof input.aiModel !== "string" || input.aiModel.length > 120)
     throw new Error("Invalid OpenAI model name");
+  if (!isAiReasoningEffort(input.aiReasoningEffort))
+    throw new Error("Invalid AI reasoning effort");
   const current = await storedSettings();
   let encryptedAiSecret = current.encryptedAiSecret;
   if (input.aiSecret !== undefined) {
@@ -91,6 +99,7 @@ export async function saveAppSettings(value: unknown) {
     autoSaveDelay: input.autoSaveDelay,
     aiApiUrl: url.toString(),
     aiModel: input.aiModel.trim(),
+    aiReasoningEffort: input.aiReasoningEffort,
     encryptedAiSecret,
   };
   const update = settingsWrites.then(async () => {
@@ -123,6 +132,7 @@ export async function getAiCredentials() {
   return {
     url: settings.aiApiUrl,
     model: settings.aiModel,
+    reasoningEffort: settings.aiReasoningEffort,
     secret: safeStorage.decryptString(
       Buffer.from(settings.encryptedAiSecret, "base64"),
     ),

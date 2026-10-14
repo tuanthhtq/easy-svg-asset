@@ -33,6 +33,7 @@ import {
   wheelZoom,
   type ViewportTransform,
 } from "./input";
+import { configureGroupInteraction, setAiPreviewState } from "./objectState";
 import {
   clampRadius,
   enableRadiusControl,
@@ -48,6 +49,7 @@ import {
   type ShapePoint,
   type ShapeTool,
 } from "./shape";
+import { stripEditorBackground } from "../../../shared/svg";
 
 export type Tool = "select" | "pen" | ShapeTool;
 export type LayerAction = "up" | "down" | "front" | "back";
@@ -66,6 +68,9 @@ export function useCanvasEditor(project: Project | null) {
   const history = useRef(new History());
   const restoring = useRef(false);
   const clipboard = useRef<FabricObject | null>(null);
+  const aiPreview = useRef<FabricObject[]>([]);
+  const aiPreviewHighlight = useRef<Rect | null>(null);
+  const editingGroup = useRef<Group | null>(null);
   const [tool, setTool] = useState<Tool>("select");
   const [selected, setSelected] = useState<FabricObject | null>(null);
   const [fill, setFill] = useState<string | null>("#ff6b4a");
@@ -81,6 +86,7 @@ export function useCanvasEditor(project: Project | null) {
   const fillRef = useRef(fill);
   const strokeRef = useRef(stroke);
   const strokeWidthRef = useRef(strokeWidth);
+  const radiusRef = useRef(radius);
   const canvasWidthRef = useRef(DEFAULT_CANVAS_WIDTH);
   const canvasHeightRef = useRef(DEFAULT_CANVAS_HEIGHT);
   const snapToGridRef = useRef(snapToGrid);
@@ -107,6 +113,7 @@ export function useCanvasEditor(project: Project | null) {
   fillRef.current = fill;
   strokeRef.current = stroke;
   strokeWidthRef.current = strokeWidth;
+  radiusRef.current = radius;
   snapToGridRef.current = snapToGrid;
   gridSizeRef.current = gridSize;
 
@@ -156,6 +163,8 @@ export function useCanvasEditor(project: Project | null) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     restoring.current = true;
+    aiPreview.current = [];
+    editingGroup.current = null;
     await canvas.loadFromJSON(value);
     canvas
       .getObjects()
@@ -180,6 +189,17 @@ export function useCanvasEditor(project: Project | null) {
       setStrokeWidth(object.strokeWidth);
     if (object instanceof Rect) setRadius(visualRadius(object));
     render((count) => count + 1);
+  }
+
+  function exitGroupEditing(selectGroup = false) {
+    const canvas = canvasRef.current;
+    const group = editingGroup.current;
+    if (!canvas || !group) return;
+    group.set("interactive", false);
+    editingGroup.current = null;
+    if (selectGroup) canvas.setActiveObject(group);
+    canvas.requestRenderAll();
+    refreshSelection();
   }
 
   useEffect(() => {
@@ -316,7 +336,10 @@ export function useCanvasEditor(project: Project | null) {
     canvas.on("object:removed", changed);
     canvas.on("selection:created", refreshSelection);
     canvas.on("selection:updated", refreshSelection);
-    canvas.on("selection:cleared", refreshSelection);
+    canvas.on("selection:cleared", () => {
+      exitGroupEditing();
+      refreshSelection();
+    });
     canvas.on("object:moving", ({ target }) => {
       if (snapToGridRef.current) {
         target.set({
@@ -331,6 +354,12 @@ export function useCanvasEditor(project: Project | null) {
       const kind = toolRef.current;
       setContextMenu(null);
       const button = "button" in e ? e.button : 0;
+      if (editingGroup.current && button === 0 && kind === "select") {
+        const target = canvas.findTarget(e).target;
+        const group = editingGroup.current;
+        if (!target || (target !== group && !group.contains(target, true)))
+          exitGroupEditing();
+      }
       if (button === 1 || (button === 0 && spacePressed.current)) {
         const event = e as MouseEvent;
         event.preventDefault();
@@ -439,7 +468,26 @@ export function useCanvasEditor(project: Project | null) {
       refreshSelection();
       setTool("select");
     };
+    const handleDoubleClick = ({ target, subTargets }: TPointerEventInfo) => {
+      const group =
+        target instanceof Group && !(target instanceof ActiveSelection)
+          ? target
+          : target?.group instanceof Group &&
+              !(target.group instanceof ActiveSelection)
+            ? target.group
+            : null;
+      const child = target === group ? subTargets?.[0] : target;
+      if (!group || !child || isFlattened(group)) return;
+      if (editingGroup.current && editingGroup.current !== group)
+        editingGroup.current.set("interactive", false);
+      group.set({ interactive: true, subTargetCheck: true });
+      editingGroup.current = group;
+      canvas.setActiveObject(child);
+      canvas.requestRenderAll();
+      refreshSelection();
+    };
     canvas.on("mouse:down", handlePointerDown);
+    canvas.on("mouse:dblclick", handleDoubleClick);
     canvas.on("mouse:move", handlePointerMove);
     canvas.on("mouse:up", handlePointerUp);
     const handleWheel = ({ e }: TPointerEventInfo) => {
@@ -470,6 +518,11 @@ export function useCanvasEditor(project: Project | null) {
         target?.isContentEditable
       )
         return;
+      if (event.key === "Escape" && editingGroup.current) {
+        event.preventDefault();
+        exitGroupEditing(true);
+        return;
+      }
       if (event.code === "Space") {
         event.preventDefault();
         spacePressed.current = true;
@@ -516,6 +569,7 @@ export function useCanvasEditor(project: Project | null) {
 
     return () => {
       canvas.off("mouse:down", handlePointerDown);
+      canvas.off("mouse:dblclick", handleDoubleClick);
       canvas.off("mouse:move", handlePointerMove);
       canvas.off("mouse:up", handlePointerUp);
       canvas.off("mouse:wheel", handleWheel);
@@ -526,6 +580,8 @@ export function useCanvasEditor(project: Project | null) {
       resizeObserver.disconnect();
       void canvas.dispose();
       canvasRef.current = null;
+      aiPreview.current = [];
+      editingGroup.current = null;
     };
   }, [project]);
 
@@ -536,6 +592,8 @@ export function useCanvasEditor(project: Project | null) {
     canvas.clear();
     penDraft.current = { points: [], anchors: [] };
     shapeDraft.current = null;
+    aiPreview.current = [];
+    editingGroup.current = null;
     canvas.requestRenderAll();
     restoring.current = false;
     setSelected(null);
@@ -547,7 +605,10 @@ export function useCanvasEditor(project: Project | null) {
   }
 
   async function load(svg: string) {
-    const parsed = await loadSVGFromString(svg, restoreFlattened);
+    const parsed = await loadSVGFromString(
+      stripEditorBackground(svg),
+      restoreFlattened,
+    );
     const canvas = canvasRef.current;
     if (!canvas) return;
     restoring.current = true;
@@ -555,6 +616,8 @@ export function useCanvasEditor(project: Project | null) {
       canvas.clear();
       penDraft.current = { points: [], anchors: [] };
       shapeDraft.current = null;
+      aiPreview.current = [];
+      editingGroup.current = null;
       canvas.add(
         ...parsed.objects
           .filter((item): item is FabricObject => Boolean(item))
@@ -920,7 +983,8 @@ export function useCanvasEditor(project: Project | null) {
 
   function sceneContext(activePalette: AiPalette): AiSceneContext {
     const canvas = canvasRef.current;
-    const objects = canvas?.getObjects() ?? [];
+    const objects =
+      canvas?.getObjects().filter((object) => !object.excludeFromExport) ?? [];
     const active = new Set(canvas?.getActiveObjects() ?? []);
     return {
       canvas: {
@@ -952,35 +1016,123 @@ export function useCanvasEditor(project: Project | null) {
         .filter((object) => active.has(object))
         .map(ensureObjectId),
       activePalette,
+      settings: {
+        strokeWidth: strokeWidthRef.current,
+        radius: radiusRef.current,
+        snapToGrid: snapToGridRef.current,
+        gridSize: gridSizeRef.current,
+      },
       sceneVersion: changeVersion,
     };
   }
 
-  function applyAiCommands(commands: AiCommand[]) {
+  function discardAiPreview() {
+    const canvas = canvasRef.current;
+    if (!canvas || (!aiPreview.current.length && !aiPreviewHighlight.current))
+      return;
+    restoring.current = true;
+    canvas.remove(...aiPreview.current);
+    if (aiPreviewHighlight.current) canvas.remove(aiPreviewHighlight.current);
+    restoring.current = false;
+    aiPreview.current = [];
+    aiPreviewHighlight.current = null;
+    canvas.requestRenderAll();
+    refreshSelection();
+  }
+
+  function previewAiCommands(commands: AiCommand[]) {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    discardAiPreview();
+    const objects: FabricObject[] = [];
+    for (const command of commands) {
+      let object: FabricObject | null = null;
+      if (command.kind === "create_shape")
+        object = createAiShape(command.shape);
+      else if (command.kind === "create_asset") {
+        const group = new Group(command.children.map(createAiShape));
+        Object.assign(group, {
+          name: command.groupName,
+          id: crypto.randomUUID(),
+        });
+        object = prepareObject(group, snapGridSize(), refreshSelection);
+      }
+      if (object) objects.push(setAiPreviewState(object, true));
+    }
+    if (!objects.length) return;
+    restoring.current = true;
+    canvas.add(...objects);
+    aiPreview.current = objects;
+    const bounds = objects.reduce(
+      (current, object) => {
+        const box = object.getBoundingRect();
+        const right = box.left + box.width;
+        const bottom = box.top + box.height;
+        return {
+          left: Math.min(current.left, box.left),
+          top: Math.min(current.top, box.top),
+          right: Math.max(current.right, right),
+          bottom: Math.max(current.bottom, bottom),
+        };
+      },
+      {
+        left: Number.POSITIVE_INFINITY,
+        top: Number.POSITIVE_INFINITY,
+        right: Number.NEGATIVE_INFINITY,
+        bottom: Number.NEGATIVE_INFINITY,
+      },
+    );
+    const padding = 10;
+    const highlight = new Rect({
+      left: bounds.left - padding,
+      top: bounds.top - padding,
+      width: bounds.right - bounds.left + padding * 2,
+      height: bounds.bottom - bounds.top + padding * 2,
+      originX: "left",
+      originY: "top",
+      fill: "transparent",
+      stroke: PREVIEW_STROKE,
+      strokeWidth: 2,
+      strokeDashArray: [8, 6],
+      selectable: false,
+      evented: false,
+      excludeFromExport: true,
+    });
+    aiPreviewHighlight.current = highlight;
+    canvas.add(highlight);
+    restoring.current = false;
+    canvas.setViewportTransform(
+      focusViewport(
+        canvas.viewportTransform as ViewportTransform,
+        {
+          x: (bounds.left + bounds.right) / 2,
+          y: (bounds.top + bounds.bottom) / 2,
+        },
+        canvas.getWidth(),
+        canvas.getHeight(),
+      ),
+    );
+    canvas.requestRenderAll();
+  }
+
+  function approveAiCommands(commands: AiCommand[]) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const byId = new Map(
-      canvas.getObjects().map((object) => [ensureObjectId(object), object]),
+      canvas
+        .getObjects()
+        .filter((object) => !object.excludeFromExport)
+        .map((object) => [ensureObjectId(object), object]),
     );
-    let lastCreated: FabricObject | null = null;
-    let changed = false;
+    const previews = aiPreview.current;
+    let changed = Boolean(previews.length);
     restoring.current = true;
     try {
+      if (aiPreviewHighlight.current) canvas.remove(aiPreviewHighlight.current);
+      aiPreviewHighlight.current = null;
+      previews.forEach((object) => setAiPreviewState(object, false));
       for (const command of commands) {
-        if (command.kind === "create_shape") {
-          lastCreated = createAiShape(command.shape);
-          canvas.add(lastCreated);
-          changed = true;
-        } else if (command.kind === "create_asset") {
-          const group = new Group(command.children.map(createAiShape));
-          Object.assign(group, {
-            name: command.groupName,
-            id: crypto.randomUUID(),
-          });
-          lastCreated = prepareObject(group, snapGridSize(), refreshSelection);
-          canvas.add(lastCreated);
-          changed = true;
-        } else if (command.kind === "recolor_objects") {
+        if (command.kind === "recolor_objects") {
           command.changes.forEach((change) => {
             const object = byId.get(change.objectId);
             if (object) {
@@ -990,6 +1142,8 @@ export function useCanvasEditor(project: Project | null) {
           });
         }
       }
+      aiPreview.current = [];
+      const lastCreated = previews.at(-1);
       if (lastCreated) canvas.setActiveObject(lastCreated);
       if (changed) canvas.requestRenderAll();
     } finally {
@@ -1050,6 +1204,7 @@ export function useCanvasEditor(project: Project | null) {
   function select(object: FabricObject) {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    exitGroupEditing();
     canvas.setActiveObject(object);
     if (!object.isOnScreen())
       canvas.setViewportTransform(
@@ -1081,7 +1236,11 @@ export function useCanvasEditor(project: Project | null) {
     restoring.current = true;
     canvas.discardActiveObject();
     objects.forEach((object) => canvas.remove(object));
-    const grouped = new Group(objects);
+    const grouped = prepareObject(
+      new Group(objects),
+      snapGridSize(),
+      refreshSelection,
+    );
     canvas.add(grouped);
     canvas.setActiveObject(grouped);
     restoring.current = false;
@@ -1181,7 +1340,10 @@ export function useCanvasEditor(project: Project | null) {
       selected instanceof Group &&
       !(selected instanceof ActiveSelection) &&
       !isFlattened(selected),
-    objects: canvasRef.current?.getObjects() ?? [],
+    objects:
+      canvasRef.current
+        ?.getObjects()
+        .filter((object) => !object.excludeFromExport) ?? [],
     canUndo: history.current.canUndo,
     canRedo: history.current.canRedo,
     clear,
@@ -1191,7 +1353,9 @@ export function useCanvasEditor(project: Project | null) {
     updateSize,
     addSvg,
     sceneContext,
-    applyAiCommands,
+    previewAiCommands,
+    approveAiCommands,
+    discardAiPreview,
     selectionSvg,
     toSvg,
     exportSvg,
@@ -1242,10 +1406,12 @@ function prepareObject(
     );
     enableRadiusControl(object, radiusGridSize, onChange);
   }
-  if (object instanceof Group)
+  if (object instanceof Group && !(object instanceof ActiveSelection)) {
+    configureGroupInteraction(object, !isFlattened(object));
     object
       .getObjects()
       .forEach((child) => prepareObject(child, radiusGridSize, onChange));
+  }
   return object;
 }
 

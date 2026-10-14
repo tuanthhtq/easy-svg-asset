@@ -1,14 +1,23 @@
 import { useRef, useState } from "react";
-import { Check, ChevronDown, ImagePlus, Sparkles, X } from "lucide-react";
-import type { AiCommand, AiResponse, AiSceneContext } from "../../../shared/ai";
+import {
+  Check,
+  ChevronDown,
+  ImagePlus,
+  RefreshCw,
+  Sparkles,
+  X,
+} from "lucide-react";
+import type { AiResponse, AiSceneContext } from "../../../shared/ai";
 import { resizePromptImage } from "./promptImage";
 
 type AiBoxProps = {
   scene: AiSceneContext;
-  onApply: (response: AiResponse) => boolean;
+  onPreview: (response: AiResponse) => void;
+  onApprove: (response: AiResponse) => boolean;
+  onReject: () => void;
 };
 
-export function AiBox({ scene, onApply }: AiBoxProps) {
+export function AiBox({ scene, onPreview, onApprove, onReject }: AiBoxProps) {
   const [open, setOpen] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [image, setImage] = useState<{ mimeType: string; data: string } | null>(
@@ -33,11 +42,16 @@ export function AiBox({ scene, onApply }: AiBoxProps) {
     setBusy(true);
     setError("");
     try {
+      if (response) {
+        onReject();
+        setResponse(null);
+      }
       const next = await window.studio.runAi({
         prompt: prompt.trim(),
         image,
         scene,
       });
+      onPreview(next);
       setResponse(next);
     } catch (cause) {
       setError(String(cause));
@@ -51,13 +65,18 @@ export function AiBox({ scene, onApply }: AiBoxProps) {
     if (file) void readImage(file);
   }
 
-  function summary(command: AiCommand) {
-    if (command.kind === "create_shape") return `Tạo ${command.shape.name}`;
-    if (command.kind === "create_asset")
-      return `Asset: ${command.groupName} (${command.children.length} shape)`;
-    if (command.kind === "generate_palette")
-      return `Palette: ${command.paletteName}`;
-    return `Tô màu ${command.changes.length} object`;
+  function reject() {
+    onReject();
+    setResponse(null);
+    setError("");
+  }
+
+  function approve() {
+    if (!response) return;
+    if (onApprove(response)) {
+      setResponse(null);
+      setError("");
+    }
   }
 
   return (
@@ -101,14 +120,16 @@ export function AiBox({ scene, onApply }: AiBoxProps) {
                 if (file) void readImage(file);
               }}
             />
-            <button
-              className="primary-action"
-              disabled={busy || !prompt.trim()}
-              onClick={() => void run()}
-            >
-              <Sparkles />
-              {busy ? "Đang nghĩ..." : "Đề xuất"}
-            </button>
+            {!response && (
+              <button
+                className="primary-action"
+                disabled={busy || !prompt.trim()}
+                onClick={() => void run()}
+              >
+                <Sparkles />
+                {busy ? "Đang tạo..." : "Đề xuất"}
+              </button>
+            )}
           </div>
           {image && (
             <div className="ai-image-preview">
@@ -121,27 +142,59 @@ export function AiBox({ scene, onApply }: AiBoxProps) {
           )}
           {response && (
             <div className="ai-review">
-              <p>{response.message}</p>
-              {response.commands.map((command, index) => (
-                <div className="ai-command" key={`${command.kind}-${index}`}>
-                  {summary(command)}
-                </div>
-              ))}
-              {response.commands.length > 0 && (
-                <div className="ai-review-actions">
-                  <button
-                    className="primary-action"
-                    onClick={() => {
-                      if (onApply(response)) setResponse(null);
-                    }}
+              <p>
+                {response.commands.some(
+                  (command) =>
+                    command.kind === "create_shape" ||
+                    command.kind === "create_asset",
+                )
+                  ? "Preview đang hiển thị trên canvas."
+                  : response.message}
+              </p>
+              {response.commands.map((command, index) =>
+                command.kind === "generate_palette" ? (
+                  <section
+                    className="ai-palette-review"
+                    aria-label={`Palette proposal: ${command.paletteName}`}
+                    key={`${command.paletteName}-${index}`}
                   >
-                    <Check /> Apply
-                  </button>
-                  <button onClick={() => setResponse(null)}>
-                    <X /> Reject
-                  </button>
-                </div>
+                    <div className="ai-palette-review-heading">
+                      <span>
+                        {command.mode === "create"
+                          ? "Tạo palette mới"
+                          : "Cập nhật palette"}
+                      </span>
+                      <small>Chưa áp dụng</small>
+                    </div>
+                    <strong>{command.paletteName}</strong>
+                    <div className="ai-palette-colors">
+                      {command.colors.map((color) => (
+                        <div className="ai-palette-color" key={color}>
+                          <span style={{ backgroundColor: color }} />
+                          <code>{color.toUpperCase()}</code>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                ) : null,
               )}
+              <div className="ai-review-actions">
+                <button
+                  className="ai-regenerate"
+                  disabled={busy || !prompt.trim()}
+                  onClick={() => void run()}
+                >
+                  <RefreshCw /> {busy ? "Đang tạo..." : "Regenerate"}
+                </button>
+                <button onClick={reject}>
+                  <X /> Reject
+                </button>
+                {response.commands.length > 0 && (
+                  <button className="primary-action" onClick={approve}>
+                    <Check /> Approve
+                  </button>
+                )}
+              </div>
             </div>
           )}
           {error && <p className="ai-error">{error}</p>}

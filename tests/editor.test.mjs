@@ -33,18 +33,31 @@ import {
   wheelZoom,
 } from "../src/renderer/src/editor/input.ts";
 import { parsePalettePresets } from "../src/renderer/src/editor/palette.ts";
-import { parseAiCommand, validateAiPlan } from "../src/shared/ai.ts";
+import {
+  compactAiScene,
+  parseAiCommand,
+  validateAiPlan,
+} from "../src/shared/ai.ts";
 import { fitImageSize } from "../src/renderer/src/components/promptImage.ts";
 import { History } from "../src/renderer/src/editor/history.ts";
+import {
+  configureGroupInteraction,
+  setAiPreviewState,
+} from "../src/renderer/src/editor/objectState.ts";
 import {
   ensureProject,
   setActiveDocument,
   setProjectSettings,
 } from "../src/shared/project.ts";
-import { validateSvg } from "../src/shared/svg.ts";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { stripEditorBackground, validateSvg } from "../src/shared/svg.ts";
+import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { initializeAiLogger, logAiEvent } from "../src/main/ai-logger.ts";
+import {
+  AI_REASONING_EFFORTS,
+  isAiReasoningEffort,
+} from "../src/shared/types.ts";
 
 test("rectangle radius stays within its geometry", () => {
   assert.equal(clampRadius(-10, 180, 120), 0);
@@ -239,8 +252,15 @@ test("AI plan validation rejects overlap and palette violations", () => {
     ],
     selectedObjectIds: [],
     activePalette: { id: "warm", name: "Warm", colors: ["#123456"] },
+    settings: {
+      strokeWidth: 4,
+      radius: 8,
+      snapToGrid: false,
+      gridSize: 8,
+    },
     sceneVersion: 1,
   };
+  shape.radius = 8;
   assert.throws(
     () =>
       validateAiPlan([{ kind: "create_shape", shape }], scene, [
@@ -256,6 +276,54 @@ test("AI plan validation rejects overlap and palette violations", () => {
   assert.throws(
     () => validateAiPlan([recolor], scene, [scene.activePalette]),
     /outside the palette/,
+  );
+  assert.throws(
+    () =>
+      validateAiPlan(
+        [
+          {
+            kind: "create_shape",
+            shape: { ...shape, x: 100, y: 100, fill: "#ff0000" },
+          },
+        ],
+        scene,
+        [scene.activePalette],
+      ),
+    /outside the active palette/,
+  );
+  assert.throws(
+    () =>
+      validateAiPlan(
+        [
+          {
+            kind: "create_shape",
+            shape: {
+              ...shape,
+              x: 100,
+              y: 100,
+              stroke: "#123456",
+              strokeWidth: 2,
+            },
+          },
+        ],
+        scene,
+        [scene.activePalette],
+      ),
+    /inconsistent stroke width/,
+  );
+  assert.throws(
+    () =>
+      validateAiPlan(
+        [
+          {
+            kind: "create_shape",
+            shape: { ...shape, x: 100, y: 100, radius: 2 },
+          },
+        ],
+        scene,
+        [scene.activePalette],
+      ),
+    /inconsistent corner radius/,
   );
 });
 
@@ -299,6 +367,91 @@ test("AI assets require a named group and valid child shapes", () => {
     () => parseAiCommand("create_asset", { groupName: "", children: [] }),
     /group name|asset needs/,
   );
+  assert.throws(
+    () =>
+      parseAiCommand("create_asset", {
+        groupName: "Too detailed",
+        children: Array.from({ length: 9 }, () => ({
+          type: "rect",
+          name: "part",
+          x: 20,
+          y: 20,
+          width: 4,
+          height: 4,
+          rotation: 0,
+          fill: "#123456",
+          stroke: null,
+          strokeWidth: 0,
+          radius: 0,
+          points: null,
+        })),
+      }),
+    /asset needs 2 to 8 shapes/,
+  );
+});
+
+test("AI scene payload is compact and includes current drawing settings", () => {
+  const scene = compactAiScene({
+    canvas: { width: 1200, height: 760 },
+    objects: [
+      {
+        id: "shape-1",
+        type: "rect",
+        name: "Field",
+        bounds: { left: 1, top: 2, width: 3, height: 4 },
+        rotation: 5,
+        zIndex: 0,
+        fill: "#ffffff",
+        stroke: "#000000",
+        strokeWidth: 4,
+        radius: 16,
+      },
+    ],
+    selectedObjectIds: [],
+    activePalette: { id: "warm", name: "Warm", colors: ["#123456"] },
+    settings: {
+      strokeWidth: 4,
+      radius: 16,
+      snapToGrid: true,
+      gridSize: 8,
+    },
+    sceneVersion: 3,
+  });
+  assert.deepEqual(scene.c, [1200, 760]);
+  assert.deepEqual(scene.d, [4, 16, true, 8]);
+  assert.deepEqual(scene.p, ["#123456"]);
+  assert.deepEqual(scene.o, [
+    ["shape-1", "rect", "Field", 1, 2, 3, 4, 5, 0, 4, 16],
+  ]);
+  assert.equal(scene.v, 3);
+});
+
+test("AI previews stay temporary until approval", () => {
+  const object = setAiPreviewState(new Rect({ width: 10, height: 10 }), true);
+  assert.equal(object.excludeFromExport, true);
+  assert.equal(object.selectable, false);
+  assert.equal(object.evented, false);
+  assert.equal(object.opacity, 0.72);
+  setAiPreviewState(object, false);
+  assert.equal(object.excludeFromExport, false);
+  assert.equal(object.selectable, true);
+  assert.equal(object.evented, true);
+  assert.equal(object.opacity, 1);
+});
+
+test("groups support drill-in while flattened groups stay atomic", () => {
+  const group = configureGroupInteraction(
+    new Group([new Rect({ width: 10, height: 10 })]),
+    true,
+  );
+  assert.equal(group.subTargetCheck, true);
+  assert.equal(group.interactive, false);
+  const flattened = configureGroupInteraction(
+    markFlattened(new Group([new Rect({ width: 10, height: 10 })])),
+    false,
+  );
+  assert.equal(flattened.subTargetCheck, false);
+  assert.equal(flattened.interactive, false);
 });
 
 test("flattened groups survive editor history serialization", async () => {
@@ -360,6 +513,15 @@ test("SVG validation rejects active content", () => {
   );
 });
 
+test("opening an editor SVG does not turn its canvas background into a layer", () => {
+  const svg = `<svg><defs></defs>
+<rect x="0" y="0" width="100%" height="100%" fill="#fbfaf7"></rect>
+<g><rect width="10" height="10" fill="#fbfaf7"></rect></g></svg>`;
+  const cleaned = stripEditorBackground(svg);
+  assert.doesNotMatch(cleaned, /width="100%"/);
+  assert.match(cleaned, /width="10"/);
+});
+
 test("opening any folder creates a manifest and records the active SVG", async () => {
   const root = await mkdtemp(join(tmpdir(), "easy-svg-asset-"));
   try {
@@ -402,4 +564,41 @@ test("project settings survive reopening an older manifest", async () => {
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+});
+
+test("AI logger writes JSON and retains only five app sessions", async () => {
+  const root = await mkdtemp(join(tmpdir(), "easy-svg-ai-log-"));
+  try {
+    for (let index = 0; index < 6; index++) {
+      await initializeAiLogger(root, "test");
+      await logAiEvent("test", { index, secret: "[REDACTED]" });
+      await new Promise((resolve) => setTimeout(resolve, 2));
+    }
+    const directory = join(root, "ai-logs");
+    const files = await readdir(directory);
+    assert.equal(files.length, 5);
+    const latest = JSON.parse(
+      await readFile(join(directory, files.sort().at(-1)), "utf8"),
+    );
+    assert.equal(latest.appVersion, "test");
+    assert.equal(latest.events[0].type, "test");
+    assert.equal(latest.events[0].data.index, 5);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("AI reasoning settings accept every 9Router thinking level", () => {
+  assert.deepEqual(AI_REASONING_EFFORTS, [
+    "auto",
+    "minimal",
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max",
+    "ultra",
+  ]);
+  assert.equal(isAiReasoningEffort("low"), true);
+  assert.equal(isAiReasoningEffort("none"), false);
 });

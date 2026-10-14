@@ -125,6 +125,7 @@ button svg {
 .ai-review-actions,
 .settings-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 7px;
 }
@@ -149,6 +150,9 @@ button svg {
   border-top: 1px solid var(--line);
   padding-top: 9px;
 }
+.ai-review-actions .ai-regenerate {
+  margin-right: auto;
+}
 .ai-image-preview {
   display: flex;
   align-items: center;
@@ -172,6 +176,46 @@ button svg {
   margin: 0;
   color: var(--muted);
   line-height: 1.4;
+}
+.ai-palette-review {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 10px;
+  background: #15171a;
+}
+.ai-palette-review-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.ai-palette-review-heading small {
+  color: var(--accent);
+}
+.ai-palette-colors {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+  gap: 6px;
+}
+.ai-palette-color {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.ai-palette-color span {
+  height: 34px;
+  border: 1px solid rgb(255 255 255 / 24%);
+  border-radius: 6px;
+}
+.ai-palette-color code {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10px;
+  text-overflow: ellipsis;
 }
 .ai-command {
   border-radius: 7px;
@@ -217,6 +261,28 @@ button svg {
   border: 0;
   color: var(--muted);
   background: transparent;
+}
+.settings-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--line);
+}
+.settings-tabs button {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  padding: 8px 10px;
+  color: var(--muted);
+  background: transparent;
+}
+.settings-tabs button[aria-selected="true"] {
+  border-bottom-color: var(--accent);
+  color: var(--text);
+}
+.settings-panel {
+  display: grid;
+  gap: 13px;
+  align-content: start;
+  min-height: 184px;
 }
 .settings-dialog label {
   display: grid;

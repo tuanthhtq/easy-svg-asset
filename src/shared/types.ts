@@ -11,10 +11,27 @@ export type Project = {
 export type ProjectSettings = Pick<Project, "snapToGrid" | "gridSize">;
 export type RecentFolder = { name: string; root: string; openedAt: string };
 export type LibraryShape = { name: string; path: string; svg: string };
+export const AI_REASONING_EFFORTS = [
+  "auto",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+  "ultra",
+] as const;
+export type AiReasoningEffort = (typeof AI_REASONING_EFFORTS)[number];
+export function isAiReasoningEffort(
+  value: unknown,
+): value is AiReasoningEffort {
+  return AI_REASONING_EFFORTS.includes(value as AiReasoningEffort);
+}
 export type AppSettings = {
   autoSaveDelay: number;
   aiApiUrl: string;
   aiModel: string;
+  aiReasoningEffort: AiReasoningEffort;
   hasAiSecret: boolean;
 };
 export type AppSettingsInput = Omit<AppSettings, "hasAiSecret"> & {

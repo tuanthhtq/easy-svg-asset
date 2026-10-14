@@ -62,6 +62,12 @@ export type AiSceneContext = {
   objects: AiSceneObject[];
   selectedObjectIds: string[];
   activePalette: AiPalette;
+  settings: {
+    strokeWidth: number;
+    radius: number;
+    snapToGrid: boolean;
+    gridSize: number;
+  };
   sceneVersion: number;
 };
 export type AiImage = { mimeType: string; data: string };
@@ -75,6 +81,34 @@ export type AiResponse = {
   commands: AiCommand[];
   sceneVersion: number;
 };
+
+export function compactAiScene(scene: AiSceneContext) {
+  return {
+    c: [scene.canvas.width, scene.canvas.height],
+    o: scene.objects.map((object) => [
+      object.id,
+      object.type,
+      object.name,
+      object.bounds.left,
+      object.bounds.top,
+      object.bounds.width,
+      object.bounds.height,
+      object.rotation,
+      object.zIndex,
+      object.strokeWidth,
+      object.radius,
+    ]),
+    s: scene.selectedObjectIds,
+    p: scene.activePalette.colors,
+    d: [
+      scene.settings.strokeWidth,
+      scene.settings.radius,
+      scene.settings.snapToGrid,
+      scene.settings.gridSize,
+    ],
+    v: scene.sceneVersion,
+  };
+}
 
 const HEX_COLOR = /^#[\da-f]{6}$/i;
 const SHAPE_TYPES = new Set<AiShapeKind>([
@@ -182,9 +216,9 @@ export function parseAiCommand(
     if (
       !Array.isArray(item.children) ||
       item.children.length < 2 ||
-      item.children.length > 32
+      item.children.length > 8
     )
-      throw new Error("AI asset needs 2 to 32 shapes");
+      throw new Error("AI asset needs 2 to 8 shapes");
     return {
       kind: "create_asset",
       groupName: text(item.groupName, "group name"),
@@ -313,6 +347,9 @@ export function validateAiPlan(
 ) {
   const occupied = scene.objects.map((object) => object.bounds);
   const objectIds = new Set(scene.objects.map((object) => object.id));
+  const activeColors = new Set(
+    scene.activePalette.colors.map((color) => color.toLowerCase()),
+  );
   const paletteMap = new Map(
     palettes.map((palette) => [
       palette.id,
@@ -321,6 +358,28 @@ export function validateAiPlan(
   );
   for (const command of commands) {
     if (command.kind === "create_shape" || command.kind === "create_asset") {
+      const shapes =
+        command.kind === "create_shape" ? [command.shape] : command.children;
+      for (const shape of shapes) {
+        for (const paint of [shape.fill, shape.stroke])
+          if (paint !== null && !activeColors.has(paint.toLowerCase()))
+            throw new Error("AI created a shape outside the active palette");
+        if (
+          shape.stroke !== null &&
+          shape.strokeWidth !== scene.settings.strokeWidth
+        )
+          throw new Error("AI created a shape with inconsistent stroke width");
+        const radius =
+          shape.type === "rect"
+            ? Math.min(
+                scene.settings.radius,
+                shape.width! / 2,
+                shape.height! / 2,
+              )
+            : 0;
+        if (Math.abs(shape.radius - radius) > 1e-6)
+          throw new Error("AI created a shape with inconsistent corner radius");
+      }
       const bounds =
         command.kind === "create_shape"
           ? shapeBounds(command.shape)

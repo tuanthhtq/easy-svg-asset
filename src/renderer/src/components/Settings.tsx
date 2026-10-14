@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { AI_REASONING_EFFORTS } from "../../../shared/types";
 import type { AppSettings, AppSettingsInput } from "../../../shared/types";
 
 type SettingsProps = {
@@ -10,6 +11,7 @@ type SettingsProps = {
 export function Settings({ settings, onClose, onSave }: SettingsProps) {
   const [draft, setDraft] = useState<AppSettingsInput>({ ...settings });
   const [secret, setSecret] = useState("");
+  const [tab, setTab] = useState<"general" | "ai">("general");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   useEffect(() => setDraft({ ...settings }), [settings]);
@@ -49,50 +51,96 @@ export function Settings({ settings, onClose, onSave }: SettingsProps) {
             Close
           </button>
         </div>
-        <label>
-          Auto-save delay (ms)
-          <input
-            autoFocus
-            type="number"
-            min={100}
-            max={10000}
-            step={100}
-            value={draft.autoSaveDelay}
-            onChange={(event) =>
-              setDraft({ ...draft, autoSaveDelay: Number(event.target.value) })
-            }
-          />
-        </label>
-        <label>
-          OpenAI API URL
-          <input
-            value={draft.aiApiUrl}
-            onChange={(event) =>
-              setDraft({ ...draft, aiApiUrl: event.target.value })
-            }
-          />
-        </label>
-        <label>
-          OpenAI model
-          <input
-            value={draft.aiModel}
-            placeholder="OpenAI model name"
-            onChange={(event) =>
-              setDraft({ ...draft, aiModel: event.target.value })
-            }
-          />
-        </label>
-        <label>
-          API secret
-          {settings.hasAiSecret && (
-            <small> Secret đã lưu, nhập mới để thay thế.</small>
+        <div className="settings-tabs" role="tablist" aria-label="Settings">
+          <button
+            role="tab"
+            aria-selected={tab === "general"}
+            onClick={() => setTab("general")}
+          >
+            General
+          </button>
+          <button
+            role="tab"
+            aria-selected={tab === "ai"}
+            onClick={() => setTab("ai")}
+          >
+            AI Config
+          </button>
+        </div>
+        <div className="settings-panel" role="tabpanel">
+          {tab === "general" ? (
+            <label>
+              Auto-save delay (ms)
+              <input
+                autoFocus
+                type="number"
+                min={100}
+                max={10000}
+                step={100}
+                value={draft.autoSaveDelay}
+                onChange={(event) =>
+                  setDraft({
+                    ...draft,
+                    autoSaveDelay: Number(event.target.value),
+                  })
+                }
+              />
+            </label>
+          ) : (
+            <>
+              <label>
+                OpenAI API URL
+                <input
+                  autoFocus
+                  value={draft.aiApiUrl}
+                  onChange={(event) =>
+                    setDraft({ ...draft, aiApiUrl: event.target.value })
+                  }
+                />
+              </label>
+              <label>
+                OpenAI model
+                <input
+                  value={draft.aiModel}
+                  placeholder="OpenAI model name"
+                  onChange={(event) =>
+                    setDraft({ ...draft, aiModel: event.target.value })
+                  }
+                />
+              </label>
+              <label>
+                Thinking effort
+                <select
+                  value={draft.aiReasoningEffort}
+                  onChange={(event) =>
+                    setDraft({
+                      ...draft,
+                      aiReasoningEffort: event.target
+                        .value as AppSettingsInput["aiReasoningEffort"],
+                    })
+                  }
+                >
+                  {AI_REASONING_EFFORTS.map((effort) => (
+                    <option key={effort} value={effort}>
+                      Thinking: {effort[0].toUpperCase() + effort.slice(1)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                API secret
+                {settings.hasAiSecret && (
+                  <small> Secret đã lưu, nhập mới để thay thế.</small>
+                )}
+                <input
+                  type="password"
+                  value={secret}
+                  onChange={(event) => setSecret(event.target.value)}
+                />
+              </label>
+            </>
           )}
-          <input
-            type="password"
-            value={secret}
-            onChange={(event) => setSecret(event.target.value)}
-          />
-        </label>
+        </div>
         {error && <p className="ai-error">{error}</p>}
         <div className="settings-actions">
           <button onClick={onClose}>Cancel</button>

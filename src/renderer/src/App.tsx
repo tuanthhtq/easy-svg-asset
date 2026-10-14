@@ -23,6 +23,7 @@ const DEFAULT_APP_SETTINGS: AppSettings = {
   autoSaveDelay: 500,
   aiApiUrl: "https://api.openai.com/v1/responses",
   aiModel: "",
+  aiReasoningEffort: "low",
   hasAiSecret: false,
 };
 
@@ -193,7 +194,17 @@ export function App() {
     await editor.addSvg(await window.studio.useLibraryShape(shape.path));
   }
 
-  function applyAi(response: AiResponse) {
+  function previewAi(response: AiResponse) {
+    const activePalette =
+      palettes.find((palette) => palette.id === paletteId) ?? palettes[0];
+    const scene = editor.sceneContext(activePalette);
+    if (scene.sceneVersion !== response.sceneVersion)
+      throw new Error("Canvas changed. Generate the preview again.");
+    validateAiPlan(response.commands, scene, palettes);
+    editor.previewAiCommands(response.commands);
+  }
+
+  function approveAi(response: AiResponse) {
     try {
       const activePalette =
         palettes.find((palette) => palette.id === paletteId) ?? palettes[0];
@@ -247,7 +258,7 @@ export function App() {
       }
       setPalettes(nextPalettes);
       setPaletteId(nextPaletteId);
-      editor.applyAiCommands(response.commands);
+      editor.approveAiCommands(response.commands);
       return true;
     } catch (error) {
       window.alert(String(error));
@@ -327,7 +338,9 @@ export function App() {
                 palettes.find((palette) => palette.id === paletteId) ??
                   palettes[0],
               )}
-              onApply={applyAi}
+              onPreview={previewAi}
+              onApprove={approveAi}
+              onReject={editor.discardAiPreview}
             />
           }
           onLayer={editor.layer}

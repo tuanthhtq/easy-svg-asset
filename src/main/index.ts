@@ -33,6 +33,7 @@ import type {
   ProjectSettings,
   RecentFolder,
 } from "../shared/types";
+import { initializeAiLogger } from "./ai-logger";
 import { runAi } from "./openai";
 import { getAppSettings, saveAppSettings } from "./settings";
 
@@ -286,7 +287,12 @@ function createWindow() {
     window.loadURL(process.env.ELECTRON_RENDERER_URL);
   else window.loadFile(join(import.meta.dirname, "../renderer/index.html"));
 }
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  try {
+    await initializeAiLogger(app.getPath("userData"), app.getVersion());
+  } catch (error) {
+    console.error("Failed to initialize AI logger", error);
+  }
   registerIpc();
   createWindow();
 });

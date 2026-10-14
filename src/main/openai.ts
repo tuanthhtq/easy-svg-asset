@@ -1,9 +1,12 @@
 import {
+  compactAiScene,
   parseAiCommand,
   type AiCommand,
   type AiRequest,
   type AiResponse,
 } from "../shared/ai";
+import { randomUUID } from "node:crypto";
+import { logAiEvent } from "./ai-logger";
 import { getAiCredentials } from "./settings";
 
 const nullableNumber = { type: ["number", "null"] };
@@ -76,7 +79,7 @@ const tools = [
     type: "function",
     name: "create_asset",
     description:
-      "Create a named group made from multiple shapes. Children may overlap each other.",
+      "Create one named game asset from essential parts of the requested object. Children may overlap each other, but do not add decorative or unrelated parts.",
     strict: true,
     parameters: {
       type: "object",
@@ -86,7 +89,7 @@ const tools = [
         children: {
           type: "array",
           minItems: 2,
-          maxItems: 32,
+          maxItems: 8,
           items: shapeSchema,
         },
       },
@@ -182,7 +185,8 @@ function validateRequest(value: unknown): AiRequest {
     !request.scene ||
     !Array.isArray(request.scene.objects) ||
     request.scene.objects.length > 500 ||
-    !request.scene.activePalette
+    !request.scene.activePalette ||
+    !request.scene.settings
   )
     throw new Error("Invalid AI scene context");
   if (request.image) {
@@ -222,79 +226,130 @@ function outputText(response: Record<string, unknown>) {
 }
 
 export async function runAi(value: unknown): Promise<AiResponse> {
-  const request = validateRequest(value);
-  const credentials = await getAiCredentials();
-  const scene = JSON.stringify(request.scene);
-  const content: Array<Record<string, unknown>> = [
-    {
-      type: "input_text",
-      text: `${request.prompt}\n\nCurrent scene JSON:\n${scene}`,
-    },
-  ];
-  if (request.image)
-    content.push({
-      type: "input_image",
-      image_url: `data:${request.image.mimeType};base64,${request.image.data}`,
-      detail: "auto",
-    });
-  const response = await fetch(credentials.url, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${credentials.secret}`,
-      "Content-Type": "application/json",
-    },
-    signal: AbortSignal.timeout(60_000),
-    body: JSON.stringify({
+  const requestId = randomUUID();
+  const startedAt = Date.now();
+  await logAiEvent("ai.request.received", { requestId, payload: value });
+  try {
+    const request = validateRequest(value);
+    const credentials = await getAiCredentials();
+    const scene = JSON.stringify(compactAiScene(request.scene));
+    const content: Array<Record<string, unknown>> = [
+      {
+        type: "input_text",
+        text: `${request.prompt}\nSCENE=${scene}`,
+      },
+    ];
+    if (request.image)
+      content.push({
+        type: "input_image",
+        image_url: `data:${request.image.mimeType};base64,${request.image.data}`,
+        detail: "auto",
+      });
+    const apiPayload = {
       model: credentials.model,
       store: false,
+      max_output_tokens: 4000,
+      ...(credentials.reasoningEffort !== "auto"
+        ? { reasoning: { effort: credentials.reasoningEffort } }
+        : {}),
       instructions:
-        "You plan edits for an SVG editor. Use tools only. Every created shape, asset, palette, and color choice must semantically fit the user's prompt and the existing named objects, layout, colors, and visual style. Never overlap a new top-level shape or asset with existing objects or another new top-level item; ask for clarification if no suitable free area exists. Prefer rect, then ellipse, then triangle; use pen only when primitives cannot express the form. create_asset must contain multiple contextual shapes, return a useful groupName, and may overlap its own children. Palette generation must follow the exact theme and style requested by the user. Recolor only with the active palette; proposed new colors belong in paletteSuggestions. If a palette request does not clearly say create or update, call request_clarification. Do not delete, flatten, ungroup, save, or modify anything the user did not request.",
+        "Plan SVG edits; call tools only. SCENE keys: c=[width,height], o rows=[id,type,name,left,top,width,height,rotation,z,strokeWidth,radius], s=selected IDs, p=active palette colors, d=[strokeWidth,radius,snap,gridSize], v=version. Treat d as the authoritative game-asset style profile: keep new assets consistent in line weight, corner treatment, geometry language, and palette usage. Created fill/stroke colors must come from p; stroked shapes use d[0]; rect radius=min(d[1],width/2,height/2), other shapes use radius=0. Interpret the requested subject literally. Create only geometry required to depict the named subject. Do not add decorations, labels, plants, buildings, characters, props, or secondary subjects unless explicitly requested. Style words control palette, shape language, stroke, radius, and composition only; they do not add objects. Prefer the fewest shapes that clearly represent the request: simple nouns use 1-4 shapes, complex named assets use 2-8 essential shapes. Use create_shape for simple subjects and create_asset only for genuinely multi-part objects. Every asset child must be an essential part of that one asset. Keep new top-level items inside c and clear of existing/new top-level items; asset children may overlap. Prefer rect, ellipse, triangle; use pen only when needed. Palette mode must be explicit; otherwise ask. Recolor only with p; put proposed colors in paletteSuggestions. Never delete, flatten, ungroup, save, or change unrequested content.",
       input: [{ role: "user", content }],
       tools,
       tool_choice: "required",
       parallel_tool_calls: true,
-    }),
-  });
-  const payload: unknown = await response.json().catch(() => null);
-  if (!response.ok) {
-    const message =
-      payload && typeof payload === "object"
-        ? JSON.stringify(payload).slice(0, 500)
-        : response.statusText;
-    throw new Error(`OpenAI request failed (${response.status}): ${message}`);
-  }
-  if (!payload || typeof payload !== "object")
-    throw new Error("OpenAI returned an invalid response");
-  const output = Array.isArray((payload as { output?: unknown }).output)
-    ? ((payload as { output: unknown[] }).output ?? [])
-    : [];
-  const commands: AiCommand[] = [];
-  const questions: string[] = [];
-  for (const item of output) {
-    if (!item || typeof item !== "object") continue;
-    const call = item as {
-      type?: unknown;
-      name?: unknown;
-      arguments?: unknown;
     };
-    if (
-      call.type !== "function_call" ||
-      typeof call.name !== "string" ||
-      typeof call.arguments !== "string"
-    )
-      continue;
-    const parsed = parseAiCommand(call.name, JSON.parse(call.arguments));
-    if (typeof parsed === "string") questions.push(parsed);
-    else commands.push(parsed);
+    await logAiEvent("ai.api.request", {
+      requestId,
+      url: credentials.url,
+      method: "POST",
+      headers: {
+        Authorization: "Bearer [REDACTED]",
+        "Content-Type": "application/json",
+      },
+      payload: apiPayload,
+    });
+    const response = await fetch(credentials.url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${credentials.secret}`,
+        "Content-Type": "application/json",
+      },
+      signal: AbortSignal.timeout(180_000),
+      body: JSON.stringify(apiPayload),
+    });
+    const responseText = await response.text();
+    let payload: unknown = responseText;
+    try {
+      payload = JSON.parse(responseText);
+    } catch {
+      // Keep the raw body in the log and report it as an invalid response.
+    }
+    await logAiEvent("ai.api.response", {
+      requestId,
+      status: response.status,
+      statusText: response.statusText,
+      headers: Object.fromEntries(response.headers.entries()),
+      payload,
+      durationMs: Date.now() - startedAt,
+    });
+    if (!response.ok) {
+      const message =
+        payload && typeof payload === "object"
+          ? JSON.stringify(payload).slice(0, 500)
+          : response.statusText;
+      throw new Error(`OpenAI request failed (${response.status}): ${message}`);
+    }
+    if (!payload || typeof payload !== "object")
+      throw new Error("OpenAI returned an invalid response");
+    const output = Array.isArray((payload as { output?: unknown }).output)
+      ? ((payload as { output: unknown[] }).output ?? [])
+      : [];
+    const commands: AiCommand[] = [];
+    const questions: string[] = [];
+    for (const item of output) {
+      if (!item || typeof item !== "object") continue;
+      const call = item as {
+        type?: unknown;
+        name?: unknown;
+        arguments?: unknown;
+      };
+      if (
+        call.type !== "function_call" ||
+        typeof call.name !== "string" ||
+        typeof call.arguments !== "string"
+      )
+        continue;
+      const parsed = parseAiCommand(call.name, JSON.parse(call.arguments));
+      if (typeof parsed === "string") questions.push(parsed);
+      else commands.push(parsed);
+    }
+    const result = {
+      message:
+        questions.join("\n") ||
+        outputText(payload as Record<string, unknown>) ||
+        (commands.length
+          ? "Review the proposed changes."
+          : "No changes proposed."),
+      commands: questions.length ? [] : commands,
+      sceneVersion: request.scene.sceneVersion,
+    };
+    await logAiEvent("ai.request.succeeded", {
+      requestId,
+      result,
+      durationMs: Date.now() - startedAt,
+    });
+    return result;
+  } catch (error) {
+    await logAiEvent("ai.request.failed", {
+      requestId,
+      error: {
+        name: error instanceof Error ? error.name : "Error",
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      },
+      durationMs: Date.now() - startedAt,
+    });
+    throw error;
   }
-  return {
-    message:
-      questions.join("\n") ||
-      outputText(payload as Record<string, unknown>) ||
-      (commands.length
-        ? "Review the proposed changes."
-        : "No changes proposed."),
-    commands: questions.length ? [] : commands,
-    sceneVersion: request.scene.sceneVersion,
-  };
 }
