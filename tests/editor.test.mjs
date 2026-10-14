@@ -10,6 +10,7 @@ import {
   markFlattened,
   restoreFlattened,
 } from "../src/renderer/src/editor/flatten.ts";
+import { layerTreeRows } from "../src/renderer/src/editor/layers.ts";
 import {
   canClosePen,
   shapeBounds,
@@ -500,6 +501,33 @@ test("groups support drill-in while flattened groups stay atomic", () => {
   );
   assert.equal(flattened.subTargetCheck, false);
   assert.equal(flattened.interactive, false);
+});
+
+test("layer tree follows group hierarchy and reverse z-order", () => {
+  const back = new Rect({ width: 10, height: 10 });
+  const first = new Rect({ width: 10, height: 10 });
+  const second = new Rect({ width: 10, height: 10 });
+  const group = new Group([first, second]);
+  assert.deepEqual(
+    layerTreeRows([back, group], new Set([group])).map(({ object, depth }) => [
+      object,
+      depth,
+    ]),
+    [
+      [group, 0],
+      [second, 1],
+      [first, 1],
+      [back, 0],
+    ],
+  );
+  markFlattened(group);
+  assert.deepEqual(
+    layerTreeRows([group], new Set([group])).map(({ object, depth }) => [
+      object,
+      depth,
+    ]),
+    [[group, 0]],
+  );
 });
 
 test("flattened groups survive editor history serialization", async () => {

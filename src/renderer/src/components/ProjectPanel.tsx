@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { FabricObject } from "fabric";
+import { Group, type FabricObject } from "fabric";
 import {
   FilePlus2,
   FolderOpen,
@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import type { LibraryShape, Project } from "../../../shared/types";
 import { isFlattened } from "../editor/flatten";
+import { isExpandableLayer, layerTreeRows } from "../editor/layers";
 import { AppButton } from "./AppButton";
 
 type NamedObject = FabricObject & { name?: string };
@@ -63,23 +64,35 @@ export function ProjectPanel({
 }: ProjectPanelProps) {
   const [editing, setEditing] = useState<FabricObject | null>(null);
   const [draftName, setDraftName] = useState("");
+  const [expanded, setExpanded] = useState<Set<FabricObject>>(() => new Set());
 
   function labelFor(object: FabricObject) {
     return (
       (object as NamedObject).name ||
       (isFlattened(object)
         ? "Flattened"
-        : object.type === "rect"
-          ? "Rectangle"
-          : object.type === "ellipse"
-            ? "Ellipse"
-            : object.type)
+        : object instanceof Group
+          ? "Group"
+          : object.type === "rect"
+            ? "Rectangle"
+            : object.type === "ellipse"
+              ? "Ellipse"
+              : object.type)
     );
   }
 
   function finishRename() {
     if (editing && draftName.trim()) onRenameObject(editing, draftName.trim());
     setEditing(null);
+  }
+
+  function toggleExpanded(object: FabricObject) {
+    setExpanded((current) => {
+      const next = new Set(current);
+      if (next.has(object)) next.delete(object);
+      else next.add(object);
+      return next;
+    });
   }
 
   return (
@@ -150,40 +163,66 @@ export function ProjectPanel({
         </AppButton>
       </div>
       {panel === "layers" ? (
-        <div className="layers">
-          {[...objects].reverse().map((object, index) => (
-            <div
-              className={selected === object ? "layer selected" : "layer"}
-              key={`${object.type}-${index}`}
-              role="button"
-              tabIndex={0}
-              onClick={() => onSelectObject(object)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ")
-                  onSelectObject(object);
-              }}
-              onDoubleClick={() => {
-                setEditing(object);
-                setDraftName(labelFor(object));
-              }}
-            >
-              <span className={`layer-dot ${object.type}`} />
-              {editing === object ? (
-                <input
-                  autoFocus
-                  value={draftName}
-                  onChange={(event) => setDraftName(event.target.value)}
-                  onBlur={finishRename}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") event.currentTarget.blur();
-                  }}
-                  onClick={(event) => event.stopPropagation()}
-                />
-              ) : (
-                labelFor(object)
-              )}
-            </div>
-          ))}
+        <div className="layers" role="tree" aria-label="Layers">
+          {layerTreeRows(objects, expanded).map(({ object, depth, path }) => {
+            const expandable = isExpandableLayer(object);
+            const open = expanded.has(object);
+            return (
+              <div
+                className={selected === object ? "layer selected" : "layer"}
+                key={path}
+                role="treeitem"
+                aria-level={depth + 1}
+                aria-expanded={expandable ? open : undefined}
+                tabIndex={0}
+                style={{ paddingLeft: `${8 + depth * 16}px` }}
+                onClick={() => onSelectObject(object)}
+                onKeyDown={(event) => {
+                  if (event.key === "ArrowRight" && expandable && !open)
+                    toggleExpanded(object);
+                  else if (event.key === "ArrowLeft" && expandable && open)
+                    toggleExpanded(object);
+                  else if (event.key === "Enter" || event.key === " ")
+                    onSelectObject(object);
+                }}
+                onDoubleClick={() => {
+                  setEditing(object);
+                  setDraftName(labelFor(object));
+                }}
+              >
+                {expandable ? (
+                  <AppButton
+                    className="layer-toggle"
+                    aria-label={open ? "Collapse group" : "Expand group"}
+                    aria-expanded={open}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      toggleExpanded(object);
+                    }}
+                  >
+                    {open ? "▾" : "▸"}
+                  </AppButton>
+                ) : (
+                  <span className="layer-toggle-spacer" />
+                )}
+                <span className={`layer-dot ${object.type}`} />
+                {editing === object ? (
+                  <input
+                    autoFocus
+                    value={draftName}
+                    onChange={(event) => setDraftName(event.target.value)}
+                    onBlur={finishRename}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") event.currentTarget.blur();
+                    }}
+                    onClick={(event) => event.stopPropagation()}
+                  />
+                ) : (
+                  labelFor(object)
+                )}
+              </div>
+            );
+          })}
           {!objects.length && <p className="empty-list">No shapes yet</p>}
         </div>
       ) : (

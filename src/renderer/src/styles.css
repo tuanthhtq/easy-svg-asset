@@ -737,6 +737,26 @@ button:focus-visible {
   cursor: pointer;
   min-width: 0;
 }
+.layer-toggle,
+.layer-toggle-spacer {
+  display: grid;
+  flex: 0 0 16px;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border: 0;
+  padding: 0;
+  color: var(--muted);
+  background: transparent;
+  font-size: 13px;
+  line-height: 1;
+}
+.layer-toggle:hover {
+  color: var(--text);
+}
+.layer-toggle-spacer {
+  visibility: hidden;
+}
 .layer input {
   min-width: 0;
   padding: 4px 6px;

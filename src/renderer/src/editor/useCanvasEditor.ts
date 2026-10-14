@@ -1205,6 +1205,16 @@ export function useCanvasEditor(project: Project | null) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     exitGroupEditing();
+    const group =
+      object.group instanceof Group &&
+      !(object.group instanceof ActiveSelection) &&
+      !isFlattened(object.group)
+        ? object.group
+        : null;
+    if (group) {
+      group.set({ interactive: true, subTargetCheck: true });
+      editingGroup.current = group;
+    }
     canvas.setActiveObject(object);
     if (!object.isOnScreen())
       canvas.setViewportTransform(
