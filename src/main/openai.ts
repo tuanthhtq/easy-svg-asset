@@ -9,28 +9,58 @@ import { randomUUID } from "node:crypto";
 import { logAiEvent } from "./ai-logger";
 import { getAiCredentials } from "./settings";
 
-const nullableNumber = { type: ["number", "null"] };
 const nullableColor = {
   anyOf: [{ type: "string", pattern: "^#[0-9a-fA-F]{6}$" }, { type: "null" }],
 };
+const commonShapeProperties = {
+  name: { type: "string", minLength: 1, maxLength: 80 },
+  rotation: { type: "number" },
+  fill: nullableColor,
+  stroke: nullableColor,
+  strokeWidth: { type: "number", minimum: 0 },
+  radius: { type: "number", minimum: 0 },
+};
+const requiredShapeProperties = [
+  "type",
+  "name",
+  "x",
+  "y",
+  "width",
+  "height",
+  "rotation",
+  "fill",
+  "stroke",
+  "strokeWidth",
+  "radius",
+  "points",
+];
 const shapeSchema = {
-  type: "object",
-  additionalProperties: false,
-  properties: {
-    type: { type: "string", enum: ["rect", "ellipse", "triangle", "pen"] },
-    name: { type: "string", minLength: 1, maxLength: 80 },
-    x: nullableNumber,
-    y: nullableNumber,
-    width: nullableNumber,
-    height: nullableNumber,
-    rotation: { type: "number" },
-    fill: nullableColor,
-    stroke: nullableColor,
-    strokeWidth: { type: "number", minimum: 0 },
-    radius: { type: "number", minimum: 0 },
-    points: {
-      anyOf: [
-        {
+  anyOf: [
+    {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        ...commonShapeProperties,
+        type: { type: "string", enum: ["rect", "ellipse", "triangle"] },
+        x: { type: "number" },
+        y: { type: "number" },
+        width: { type: "number", minimum: 1 },
+        height: { type: "number", minimum: 1 },
+        points: { type: "null" },
+      },
+      required: requiredShapeProperties,
+    },
+    {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        ...commonShapeProperties,
+        type: { type: "string", enum: ["pen"] },
+        x: { type: "null" },
+        y: { type: "null" },
+        width: { type: "null" },
+        height: { type: "null" },
+        points: {
           type: "array",
           minItems: 3,
           maxItems: 64,
@@ -41,23 +71,9 @@ const shapeSchema = {
             required: ["x", "y"],
           },
         },
-        { type: "null" },
-      ],
+      },
+      required: requiredShapeProperties,
     },
-  },
-  required: [
-    "type",
-    "name",
-    "x",
-    "y",
-    "width",
-    "height",
-    "rotation",
-    "fill",
-    "stroke",
-    "strokeWidth",
-    "radius",
-    "points",
   ],
 };
 

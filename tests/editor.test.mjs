@@ -396,6 +396,26 @@ test("AI assets require a named group and valid child shapes", () => {
   assert.equal(command.kind, "create_asset");
   assert.equal(command.groupName, "Farm plot");
   assert.throws(
+    () =>
+      parseAiCommand("create_shape", {
+        shape: {
+          type: "rect",
+          name: "Broken wall",
+          x: null,
+          y: 20,
+          width: 40,
+          height: 40,
+          rotation: 0,
+          fill: "#123456",
+          stroke: null,
+          strokeWidth: 0,
+          radius: 0,
+          points: null,
+        },
+      }),
+    /missing bounds/,
+  );
+  assert.throws(
     () => parseAiCommand("create_asset", { groupName: "", children: [] }),
     /group name|asset needs/,
   );

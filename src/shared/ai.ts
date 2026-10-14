@@ -237,6 +237,14 @@ export function parseAiShape(value: unknown): AiShapeSpec {
   )
     throw new Error("AI pen shapes need 3 to 64 points");
   if (
+    item.type === "pen" &&
+    (item.x !== null ||
+      item.y !== null ||
+      item.width !== null ||
+      item.height !== null)
+  )
+    throw new Error("AI pen shapes cannot include primitive bounds");
+  if (
     item.type !== "pen" &&
     (item.x === null ||
       item.y === null ||
@@ -244,6 +252,8 @@ export function parseAiShape(value: unknown): AiShapeSpec {
       item.height === null)
   )
     throw new Error("AI primitive shape is missing bounds");
+  if (item.type !== "pen" && item.points !== null)
+    throw new Error("AI primitive shapes cannot include pen points");
   return {
     type: item.type as AiShapeKind,
     name: text(item.name, "shape name"),
