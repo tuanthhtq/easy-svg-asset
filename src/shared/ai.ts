@@ -57,6 +57,7 @@ export type AiSceneObject = {
 };
 
 export type AiPalette = { id: string; name: string; colors: string[] };
+export type AiPaletteUpdateMode = "replace" | "append" | "selected";
 export type AiSceneContext = {
   canvas: { width: number; height: number };
   objects: AiSceneObject[];
@@ -127,6 +128,37 @@ export function compactAiScene(scene: AiSceneContext, palettes: AiPalette[]) {
     ],
     v: scene.sceneVersion,
   };
+}
+
+export function applyAiPaletteUpdate(
+  current: string[],
+  proposed: string[],
+  mode: AiPaletteUpdateMode,
+  selectedIndexes: number[] = [],
+) {
+  let colors: string[];
+  if (mode === "replace") colors = proposed;
+  else if (mode === "append") colors = [...current, ...proposed];
+  else {
+    const selected = new Set(selectedIndexes);
+    if (!selected.size) throw new Error("Select at least one color to replace");
+    if (
+      [...selected].some(
+        (index) =>
+          !Number.isInteger(index) || index < 0 || index >= proposed.length,
+      )
+    )
+      throw new Error("AI did not propose a replacement for every selection");
+    colors = current.map((color, index) =>
+      selected.has(index) ? proposed[index] : color,
+    );
+  }
+  const unique = [
+    ...new Map(colors.map((color) => [color.toLowerCase(), color])).values(),
+  ];
+  if (!unique.length || unique.length > 16)
+    throw new Error("A palette must contain 1 to 16 colors");
+  return unique;
 }
 
 const HEX_COLOR = /^#[\da-f]{6}$/i;

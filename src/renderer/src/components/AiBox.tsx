@@ -9,9 +9,11 @@ import {
 } from "lucide-react";
 import type {
   AiPalette,
+  AiPaletteUpdateMode,
   AiResponse,
   AiSceneContext,
 } from "../../../shared/ai";
+import { applyAiPaletteUpdate } from "../../../shared/ai";
 import type { AiStylePreset } from "../../../shared/types";
 import { resizePromptImage } from "./promptImage";
 
@@ -44,6 +46,9 @@ export function AiBox({
     null,
   );
   const [response, setResponse] = useState<AiResponse | null>(null);
+  const [paletteChoices, setPaletteChoices] = useState<
+    Record<number, { mode: AiPaletteUpdateMode | null; selected: number[] }>
+  >({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
@@ -87,6 +92,7 @@ export function AiBox({
         palettes,
       });
       onPreview(next);
+      setPaletteChoices({});
       setResponse(next);
     } catch (cause) {
       setError(String(cause));
@@ -103,16 +109,52 @@ export function AiBox({
   function reject() {
     onReject();
     setResponse(null);
+    setPaletteChoices({});
     setError("");
   }
 
   function approve() {
     if (!response) return;
-    if (onApprove(response)) {
-      setResponse(null);
-      setError("");
+    try {
+      const commands = response.commands.map((command, index) => {
+        if (command.kind !== "generate_palette" || command.mode !== "update")
+          return command;
+        const choice = paletteChoices[index];
+        const current = palettes.find(
+          (palette) => palette.id === command.targetPaletteId,
+        );
+        if (!choice?.mode || !current)
+          throw new Error("Choose how to update the palette");
+        return {
+          ...command,
+          colors: applyAiPaletteUpdate(
+            current.colors,
+            command.colors,
+            choice.mode,
+            choice.selected,
+          ),
+        };
+      });
+      if (onApprove({ ...response, commands })) {
+        setResponse(null);
+        setPaletteChoices({});
+        setError("");
+      }
+    } catch (cause) {
+      setError(String(cause));
     }
   }
+
+  const canApprove =
+    response?.commands.every((command, index) => {
+      if (command.kind !== "generate_palette" || command.mode !== "update")
+        return true;
+      const choice = paletteChoices[index];
+      return Boolean(
+        choice?.mode &&
+        (choice.mode !== "selected" || choice.selected.length > 0),
+      );
+    }) ?? false;
 
   return (
     <aside className={open ? "ai-box open" : "ai-box"}>
@@ -224,6 +266,89 @@ export function AiBox({
                         </div>
                       ))}
                     </div>
+                    {command.mode === "update" &&
+                      (() => {
+                        const current = palettes.find(
+                          (palette) => palette.id === command.targetPaletteId,
+                        );
+                        const choice = paletteChoices[index];
+                        return (
+                          <div className="ai-palette-update">
+                            <span>Bạn muốn áp dụng thế nào?</span>
+                            <div className="ai-palette-update-modes">
+                              {(
+                                [
+                                  ["replace", "Replace all"],
+                                  ["append", "Append"],
+                                  ["selected", "Select colors"],
+                                ] as const
+                              ).map(([mode, label]) => (
+                                <button
+                                  className={
+                                    choice?.mode === mode ? "active" : ""
+                                  }
+                                  key={mode}
+                                  onClick={() =>
+                                    setPaletteChoices((choices) => ({
+                                      ...choices,
+                                      [index]: { mode, selected: [] },
+                                    }))
+                                  }
+                                >
+                                  {label}
+                                </button>
+                              ))}
+                            </div>
+                            {choice?.mode === "selected" && current && (
+                              <div className="ai-palette-selection">
+                                {current.colors.map((color, colorIndex) => {
+                                  const replacement =
+                                    command.colors[colorIndex];
+                                  const checked =
+                                    choice.selected.includes(colorIndex);
+                                  return (
+                                    <label key={`${color}-${colorIndex}`}>
+                                      <input
+                                        type="checkbox"
+                                        disabled={!replacement}
+                                        checked={checked}
+                                        onChange={() =>
+                                          setPaletteChoices((choices) => ({
+                                            ...choices,
+                                            [index]: {
+                                              mode: "selected",
+                                              selected: checked
+                                                ? choice.selected.filter(
+                                                    (item) =>
+                                                      item !== colorIndex,
+                                                  )
+                                                : [
+                                                    ...choice.selected,
+                                                    colorIndex,
+                                                  ],
+                                            },
+                                          }))
+                                        }
+                                      />
+                                      <span
+                                        style={{ backgroundColor: color }}
+                                      />
+                                      <code>{color.toUpperCase()}</code>
+                                      <b>to</b>
+                                      <span
+                                        style={{ backgroundColor: replacement }}
+                                      />
+                                      <code>
+                                        {replacement?.toUpperCase() ?? "N/A"}
+                                      </code>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                   </section>
                 ) : null,
               )}
@@ -239,7 +364,11 @@ export function AiBox({
                   <X /> Reject
                 </button>
                 {response.commands.length > 0 && (
-                  <button className="primary-action" onClick={approve}>
+                  <button
+                    className="primary-action"
+                    disabled={!canApprove}
+                    onClick={approve}
+                  >
                     <Check /> Approve
                   </button>
                 )}

@@ -231,6 +231,44 @@ button svg {
   font-size: 10px;
   text-overflow: ellipsis;
 }
+.ai-palette-update {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.ai-palette-update-modes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+}
+.ai-palette-update-modes button.active {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.ai-palette-selection {
+  display: grid;
+  gap: 5px;
+}
+.ai-palette-selection label {
+  display: grid;
+  grid-template-columns: auto 22px minmax(58px, 1fr) auto 22px minmax(58px, 1fr);
+  align-items: center;
+  gap: 6px;
+}
+.ai-palette-selection span {
+  height: 22px;
+  border: 1px solid rgb(255 255 255 / 24%);
+  border-radius: 4px;
+}
+.ai-palette-selection code {
+  overflow: hidden;
+  font-size: 10px;
+  text-overflow: ellipsis;
+}
+.ai-palette-selection b {
+  font-weight: 400;
+}
 .ai-command {
   border-radius: 7px;
   padding: 7px 8px;

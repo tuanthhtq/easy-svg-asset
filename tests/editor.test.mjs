@@ -34,6 +34,7 @@ import {
 } from "../src/renderer/src/editor/input.ts";
 import { parsePalettePresets } from "../src/renderer/src/editor/palette.ts";
 import {
+  applyAiPaletteUpdate,
   compactAiScene,
   parseAiCommand,
   validateAiPlan,
@@ -407,35 +408,38 @@ test("AI assets require a named group and valid child shapes", () => {
 });
 
 test("AI scene payload is compact and includes palettes and drawing settings", () => {
-  const scene = compactAiScene({
-    canvas: { width: 1200, height: 760 },
-    objects: [
-      {
-        id: "shape-1",
-        type: "rect",
-        name: "Field",
-        bounds: { left: 1, top: 2, width: 3, height: 4 },
-        rotation: 5,
-        zIndex: 0,
-        fill: "#ffffff",
-        stroke: "#000000",
+  const scene = compactAiScene(
+    {
+      canvas: { width: 1200, height: 760 },
+      objects: [
+        {
+          id: "shape-1",
+          type: "rect",
+          name: "Field",
+          bounds: { left: 1, top: 2, width: 3, height: 4 },
+          rotation: 5,
+          zIndex: 0,
+          fill: "#ffffff",
+          stroke: "#000000",
+          strokeWidth: 4,
+          radius: 16,
+        },
+      ],
+      selectedObjectIds: [],
+      activePalette: { id: "warm", name: "Warm", colors: ["#123456"] },
+      settings: {
         strokeWidth: 4,
         radius: 16,
+        snapToGrid: true,
+        gridSize: 8,
       },
-    ],
-    selectedObjectIds: [],
-    activePalette: { id: "warm", name: "Warm", colors: ["#123456"] },
-    settings: {
-      strokeWidth: 4,
-      radius: 16,
-      snapToGrid: true,
-      gridSize: 8,
+      sceneVersion: 3,
     },
-    sceneVersion: 3,
-  }, [
-    { id: "warm", name: "Warm", colors: ["#123456"] },
-    { id: "farm", name: "Farm Pop", colors: ["#abcdef"] },
-  ]);
+    [
+      { id: "warm", name: "Warm", colors: ["#123456"] },
+      { id: "farm", name: "Farm Pop", colors: ["#abcdef"] },
+    ],
+  );
   assert.deepEqual(scene.c, [1200, 760]);
   assert.deepEqual(scene.d, [4, 16, true, 8]);
   assert.equal(scene.p, "warm");
@@ -447,6 +451,27 @@ test("AI scene payload is compact and includes palettes and drawing settings", (
     ["shape-1", "rect", "Field", 1, 2, 3, 4, 5, 0, 4, 16],
   ]);
   assert.equal(scene.v, 3);
+});
+
+test("AI palette updates support replace, append, and selected colors", () => {
+  const current = ["#111111", "#222222", "#333333"];
+  const proposed = ["#aaaaaa", "#bbbbbb", "#cccccc"];
+  assert.deepEqual(
+    applyAiPaletteUpdate(current, proposed, "replace"),
+    proposed,
+  );
+  assert.deepEqual(
+    applyAiPaletteUpdate(current, ["#222222", "#444444"], "append"),
+    [...current, "#444444"],
+  );
+  assert.deepEqual(
+    applyAiPaletteUpdate(current, proposed, "selected", [0, 2]),
+    ["#aaaaaa", "#222222", "#cccccc"],
+  );
+  assert.throws(
+    () => applyAiPaletteUpdate(current, proposed, "selected"),
+    /Select at least one color/,
+  );
 });
 
 test("AI previews stay temporary until approval", () => {
