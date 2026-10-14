@@ -78,6 +78,7 @@ import {
 } from "../src/main/ai-style-presets.ts";
 import {
   AI_REASONING_EFFORTS,
+  DEFAULT_AI_STYLE_PRESET,
   isAiReasoningEffort,
 } from "../src/shared/types.ts";
 
@@ -816,6 +817,30 @@ test("AI style presets migrate saved data without a default marker", async () =>
     const [preset] = await listAiStylePresets(root);
     assert.equal(preset.id, "legacy");
     assert.equal(preset.isDefault, true);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("legacy Game Assets preset migrates to moderate structural detail", async () => {
+  const root = await mkdtemp(join(tmpdir(), "easy-svg-style-default-"));
+  try {
+    const directory = join(root, "ai-style-presets");
+    await mkdir(directory, { recursive: true });
+    await writeFile(
+      join(directory, "presets.json"),
+      JSON.stringify([
+        {
+          ...DEFAULT_AI_STYLE_PRESET,
+          instruction:
+            "Readable game assets with a consistent silhouette and minimal detail.",
+          detailLevel: "minimal",
+        },
+      ]),
+    );
+    const [preset] = await listAiStylePresets(root);
+    assert.equal(preset.detailLevel, "moderate");
+    assert.equal(preset.instruction, DEFAULT_AI_STYLE_PRESET.instruction);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

@@ -20,6 +20,8 @@ const MAX_REFERENCE_BYTES = 5_000_000;
 const MAX_TOTAL_REFERENCE_BYTES = 5_000_000;
 const MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 const DEFAULT_PRESET = DEFAULT_AI_STYLE_PRESET;
+const LEGACY_DEFAULT_INSTRUCTION =
+  "Readable game assets with a consistent silhouette and minimal detail.";
 
 type StoredPreset = Omit<AiStylePreset, "referenceImages"> & {
   referenceImages: AiStylePreset["referenceImages"];
@@ -83,13 +85,22 @@ function parsePreset(value: unknown): StoredPreset | null {
     )
   ))
     return null;
-  return {
+  const parsed = {
     ...(preset as StoredPreset),
     isDefault:
       typeof preset.isDefault === "boolean"
         ? preset.isDefault
         : preset.id === DEFAULT_PRESET.id,
   };
+  return parsed.id === DEFAULT_PRESET.id &&
+    parsed.instruction === LEGACY_DEFAULT_INSTRUCTION &&
+    parsed.detailLevel === "minimal"
+    ? {
+        ...parsed,
+        instruction: DEFAULT_PRESET.instruction,
+        detailLevel: DEFAULT_PRESET.detailLevel,
+      }
+    : parsed;
 }
 
 async function readPresets(userData: string) {

@@ -82,7 +82,7 @@ export function AiStylePresetManager({
       propView: "three_quarter_top_down",
       buildingView: "three_quarter_top_down",
       noVisibleSideFacesForTerrain: true,
-      detailLevel: "minimal",
+      detailLevel: "moderate",
       referenceImages: [],
     };
     setSelectedId(preset.id);

@@ -38,12 +38,12 @@ export const DEFAULT_AI_STYLE_PRESET: AiStylePreset = {
   name: "Game Assets",
   isDefault: true,
   instruction:
-    "Readable game assets with a consistent silhouette and minimal detail.",
+    "Readable cohesive game assets with clear silhouettes, functional parts, and moderate detail. Buildings need a recognizable structure and purpose, not disconnected geometric slabs.",
   terrainView: "orthographic_top_down",
   propView: "three_quarter_top_down",
   buildingView: "three_quarter_top_down",
   noVisibleSideFacesForTerrain: true,
-  detailLevel: "minimal",
+  detailLevel: "moderate",
   referenceImages: [],
 };
 export const AI_REASONING_EFFORTS = [
