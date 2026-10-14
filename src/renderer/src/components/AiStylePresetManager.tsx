@@ -75,6 +75,7 @@ export function AiStylePresetManager({
     const preset: AiStylePreset = {
       id: `preset-${crypto.randomUUID()}`,
       name: "New style",
+      isDefault: false,
       instruction: "",
       terrainView: "orthographic_top_down",
       propView: "three_quarter_top_down",
@@ -157,7 +158,10 @@ export function AiStylePresetManager({
             onClick={() => select(preset)}
           >
             <span>{preset.name}</span>
-            <small>{preset.referenceImages.length} refs</small>
+            <small>
+              {preset.isDefault ? "Default · " : ""}
+              {preset.referenceImages.length} refs
+            </small>
           </button>
         ))}
       </aside>
@@ -265,6 +269,16 @@ export function AiStylePresetManager({
             }
           />
           Terrain has no visible side faces
+        </label>
+        <label className="style-check">
+          <input
+            type="checkbox"
+            checked={draft.isDefault}
+            onChange={(event) =>
+              event.target.checked && setDraft({ ...draft, isDefault: true })
+            }
+          />
+          Default for projects without a selected preset
         </label>
         <div className="style-reference-heading">
           <div>

@@ -50,7 +50,14 @@ import {
   setProjectSettings,
 } from "../src/shared/project.ts";
 import { stripEditorBackground, validateSvg } from "../src/shared/svg.ts";
-import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { initializeAiLogger, logAiEvent } from "../src/main/ai-logger.ts";
@@ -611,6 +618,7 @@ test("global AI style presets persist rules and bounded references", async () =>
     const created = await saveAiStylePreset(root, {
       id: "cozy-farming",
       name: "Cozy Farming",
+      isDefault: false,
       instruction: "Keep silhouettes readable.",
       terrainView: "orthographic_top_down",
       propView: "three_quarter_top_down",
@@ -662,11 +670,52 @@ test("global AI style presets persist rules and bounded references", async () =>
       "cozy-farming",
       preset.referenceImages[0].id,
     );
+    const defaulted = await saveAiStylePreset(root, {
+      ...preset,
+      isDefault: true,
+    });
+    assert.equal(
+      defaulted.find((item) => item.id === "cozy-farming")?.isDefault,
+      true,
+    );
+    assert.equal(
+      defaulted.find((item) => item.id === "default-game-assets")?.isDefault,
+      false,
+    );
     const remaining = await deleteAiStylePreset(root, copy.id);
     assert.equal(
       remaining.some((preset) => preset.id === copy.id),
       false,
     );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("AI style presets migrate saved data without a default marker", async () => {
+  const root = await mkdtemp(join(tmpdir(), "easy-svg-style-migration-"));
+  try {
+    const directory = join(root, "ai-style-presets");
+    await mkdir(directory, { recursive: true });
+    await writeFile(
+      join(directory, "presets.json"),
+      JSON.stringify([
+        {
+          id: "legacy",
+          name: "Legacy",
+          instruction: "",
+          terrainView: "orthographic_top_down",
+          propView: "three_quarter_top_down",
+          buildingView: "three_quarter_top_down",
+          noVisibleSideFacesForTerrain: true,
+          detailLevel: "minimal",
+          referenceImages: [],
+        },
+      ]),
+    );
+    const [preset] = await listAiStylePresets(root);
+    assert.equal(preset.id, "legacy");
+    assert.equal(preset.isDefault, true);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

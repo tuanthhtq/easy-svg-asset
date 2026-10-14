@@ -122,7 +122,8 @@ export function App() {
       await saveProjectSettings({
         snapToGrid: editor.snapToGrid,
         gridSize: editor.gridSize,
-        activeAiStylePresetId: next[0]?.id ?? null,
+        activeAiStylePresetId:
+          next.find((preset) => preset.isDefault)?.id ?? next[0]?.id ?? null,
       });
   }
 
@@ -393,7 +394,9 @@ export function App() {
                   (preset) => preset.id === project.activeAiStylePresetId,
                 )
                   ? project.activeAiStylePresetId!
-                  : (stylePresets[0]?.id ?? DEFAULT_AI_STYLE_PRESET.id)
+                  : (stylePresets.find((preset) => preset.isDefault)?.id ??
+                    stylePresets[0]?.id ??
+                    DEFAULT_AI_STYLE_PRESET.id)
               }
               onStylePresetChange={(activeAiStylePresetId) =>
                 void saveProjectSettings({

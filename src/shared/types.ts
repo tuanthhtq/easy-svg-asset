@@ -20,6 +20,7 @@ export type AiStyleView =
 export type AiStylePreset = {
   id: string;
   name: string;
+  isDefault: boolean;
   instruction: string;
   terrainView: AiStyleView;
   propView: AiStyleView;
@@ -35,6 +36,7 @@ export type AiStylePreset = {
 export const DEFAULT_AI_STYLE_PRESET: AiStylePreset = {
   id: "default-game-assets",
   name: "Game Assets",
+  isDefault: true,
   instruction:
     "Readable game assets with a consistent silhouette and minimal detail.",
   terrainView: "orthographic_top_down",

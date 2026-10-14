@@ -52,10 +52,10 @@ function validView(value: unknown): value is AiStyleView {
   );
 }
 
-function validPreset(value: unknown): value is StoredPreset {
-  if (!value || typeof value !== "object") return false;
+function parsePreset(value: unknown): StoredPreset | null {
+  if (!value || typeof value !== "object") return null;
   const preset = value as Partial<StoredPreset>;
-  return (
+  if (!(
     typeof preset.id === "string" &&
     /^[a-z0-9-]{1,80}$/.test(preset.id) &&
     typeof preset.name === "string" &&
@@ -81,7 +81,15 @@ function validPreset(value: unknown): value is StoredPreset {
         reference.name.length <= 120 &&
         MIME_TYPES.has(reference.mimeType),
     )
-  );
+  ))
+    return null;
+  return {
+    ...(preset as StoredPreset),
+    isDefault:
+      typeof preset.isDefault === "boolean"
+        ? preset.isDefault
+        : preset.id === DEFAULT_PRESET.id,
+  };
 }
 
 async function readPresets(userData: string) {
@@ -90,8 +98,13 @@ async function readPresets(userData: string) {
       await readFile(metadataPath(userData), "utf8"),
     );
     if (!Array.isArray(value)) return [DEFAULT_PRESET];
-    const presets = value.filter(validPreset);
-    return presets.length ? presets : [DEFAULT_PRESET];
+    const presets = value
+      .map(parsePreset)
+      .filter((preset): preset is StoredPreset => Boolean(preset));
+    if (!presets.length) return [DEFAULT_PRESET];
+    if (!presets.some((preset) => preset.isDefault))
+      presets[0] = { ...presets[0], isDefault: true };
+    return presets;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT")
       return [DEFAULT_PRESET];
@@ -117,8 +130,9 @@ export async function listAiStylePresets(userData: string) {
 }
 
 export async function saveAiStylePreset(userData: string, value: unknown) {
-  if (!validPreset(value)) throw new Error("Invalid AI style preset");
-  const preset = { ...value, name: value.name.trim() };
+  const parsed = parsePreset(value);
+  if (!parsed) throw new Error("Invalid AI style preset");
+  const preset = { ...parsed, name: parsed.name.trim() };
   const update = writes.then(async () => {
     const presets = await readPresets(userData);
     const current = presets.find((item) => item.id === preset.id);
@@ -128,9 +142,19 @@ export async function saveAiStylePreset(userData: string, value: unknown) {
       ...preset,
       referenceImages: current?.referenceImages ?? [],
     };
-    const next = current
+    let next = current
       ? presets.map((item) => (item.id === saved.id ? saved : item))
       : [...presets, saved];
+    if (saved.isDefault)
+      next = next.map((item) => ({
+        ...item,
+        isDefault: item.id === saved.id,
+      }));
+    else if (!next.some((item) => item.isDefault))
+      next = next.map((item, index) => ({
+        ...item,
+        isDefault: index === 0,
+      }));
     await writePresets(userData, next);
     return next;
   });
@@ -150,6 +174,7 @@ export async function duplicateAiStylePreset(userData: string, id: string) {
       ...source,
       id: `preset-${randomUUID()}`,
       name: `${source.name} Copy`,
+      isDefault: false,
       referenceImages: source.referenceImages.map((reference) => ({
         ...reference,
       })),
@@ -178,7 +203,12 @@ export async function deleteAiStylePreset(userData: string, id: string) {
     const presets = await readPresets(userData);
     if (!presets.some((preset) => preset.id === id))
       throw new Error("AI style preset not found");
-    const next = presets.filter((preset) => preset.id !== id);
+    let next = presets.filter((preset) => preset.id !== id);
+    if (!next.some((preset) => preset.isDefault))
+      next = next.map((preset, index) => ({
+        ...preset,
+        isDefault: index === 0,
+      }));
     await writePresets(userData, next);
     await rm(join(root(userData), id), { recursive: true, force: true });
     return next;
