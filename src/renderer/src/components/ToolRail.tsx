@@ -10,6 +10,7 @@ import {
   Undo2,
 } from "lucide-react";
 import type { Tool } from "../editor/useCanvasEditor";
+import { AppButton } from "./AppButton";
 
 type ToolRailProps = {
   tool: Tool;
@@ -34,7 +35,7 @@ export function ToolRail({
 }: ToolRailProps) {
   return (
     <nav className="tool-rail" aria-label="Drawing tools">
-      <button
+      <AppButton
         className={tool === "select" ? "rail-tool active" : "rail-tool"}
         title="Select"
         aria-label="Select"
@@ -42,8 +43,8 @@ export function ToolRail({
         onClick={() => onSelectTool("select")}
       >
         <MousePointer2 />
-      </button>
-      <button
+      </AppButton>
+      <AppButton
         className={tool === "pen" ? "rail-tool active" : "rail-tool"}
         title="Pen"
         aria-label="Pen"
@@ -51,8 +52,8 @@ export function ToolRail({
         onClick={() => onSelectTool("pen")}
       >
         <PenTool />
-      </button>
-      <button
+      </AppButton>
+      <AppButton
         className={tool === "rect" ? "rail-tool active" : "rail-tool"}
         title="Rectangle"
         aria-label="Rectangle"
@@ -60,8 +61,8 @@ export function ToolRail({
         onClick={() => onSelectTool("rect")}
       >
         <Square />
-      </button>
-      <button
+      </AppButton>
+      <AppButton
         className={tool === "ellipse" ? "rail-tool active" : "rail-tool"}
         title="Ellipse"
         aria-label="Ellipse"
@@ -69,8 +70,8 @@ export function ToolRail({
         onClick={() => onSelectTool("ellipse")}
       >
         <Circle />
-      </button>
-      <button
+      </AppButton>
+      <AppButton
         className={tool === "triangle" ? "rail-tool active" : "rail-tool"}
         title="Triangle"
         aria-label="Triangle"
@@ -78,17 +79,17 @@ export function ToolRail({
         onClick={() => onSelectTool("triangle")}
       >
         <Triangle />
-      </button>
+      </AppButton>
       <div className="rail-spacer" />
-      <button
+      <AppButton
         className="rail-tool"
         title="Settings"
         aria-label="Settings"
         onClick={onOpenSettings}
       >
         <Settings />
-      </button>
-      <button
+      </AppButton>
+      <AppButton
         className="rail-tool"
         title="Undo"
         aria-label="Undo"
@@ -96,8 +97,8 @@ export function ToolRail({
         onClick={onUndo}
       >
         <Undo2 />
-      </button>
-      <button
+      </AppButton>
+      <AppButton
         className="rail-tool"
         title="Redo"
         aria-label="Redo"
@@ -105,15 +106,15 @@ export function ToolRail({
         onClick={onRedo}
       >
         <Redo2 />
-      </button>
-      <button
+      </AppButton>
+      <AppButton
         className="rail-tool"
         title="Open another folder"
         aria-label="Open another folder"
         onClick={onOpenFolder}
       >
         <FolderOpen />
-      </button>
+      </AppButton>
     </nav>
   );
 }

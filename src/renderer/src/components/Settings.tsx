@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { AI_REASONING_EFFORTS } from "../../../shared/types";
 import type { AppSettings, AppSettingsInput } from "../../../shared/types";
 import type { AiStylePreset } from "../../../shared/types";
+import { AppButton } from "./AppButton";
 import { AiStylePresetManager } from "./AiStylePresetManager";
 
 type SettingsProps = {
@@ -68,32 +69,32 @@ export function Settings({
             <span className="eyebrow">App</span>
             <h2 id="settings-title">Settings</h2>
           </div>
-          <button aria-label="Close settings" onClick={onClose}>
+          <AppButton aria-label="Close settings" onClick={onClose}>
             Close
-          </button>
+          </AppButton>
         </div>
         <div className="settings-tabs" role="tablist" aria-label="Settings">
-          <button
+          <AppButton
             role="tab"
             aria-selected={tab === "general"}
             onClick={() => setTab("general")}
           >
             General
-          </button>
-          <button
+          </AppButton>
+          <AppButton
             role="tab"
             aria-selected={tab === "ai"}
             onClick={() => setTab("ai")}
           >
             AI Config
-          </button>
-          <button
+          </AppButton>
+          <AppButton
             role="tab"
             aria-selected={tab === "styles"}
             onClick={() => setTab("styles")}
           >
             Style Presets
-          </button>
+          </AppButton>
         </div>
         <div className="settings-panel" role="tabpanel">
           {tab === "styles" ? (
@@ -179,14 +180,14 @@ export function Settings({
         </div>
         {error && <p className="ai-error">{error}</p>}
         <div className="settings-actions">
-          <button onClick={onClose}>Cancel</button>
-          <button
+          <AppButton onClick={onClose}>Cancel</AppButton>
+          <AppButton
             className="primary-action"
             disabled={saving}
             onClick={() => void save()}
           >
             {saving ? "Saving..." : tab === "styles" ? "Done" : "Save settings"}
-          </button>
+          </AppButton>
         </div>
       </section>
     </div>

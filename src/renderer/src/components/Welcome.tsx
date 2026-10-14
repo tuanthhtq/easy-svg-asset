@@ -1,5 +1,6 @@
 import { FolderOpen, Settings } from "lucide-react";
 import type { RecentFolder } from "../../../shared/types";
+import { AppButton } from "./AppButton";
 
 type WelcomeProps = {
   recent: RecentFolder[];
@@ -17,27 +18,27 @@ export function Welcome({
   return (
     <main className="app-shell welcome-shell">
       <section className="welcome">
-        <button className="welcome-settings" onClick={onOpenSettings}>
+        <AppButton className="welcome-settings" onClick={onOpenSettings}>
           <Settings /> Settings
-        </button>
-        <button
+        </AppButton>
+        <AppButton
           className="primary-action welcome-action"
           onClick={onOpenFolder}
         >
           <FolderOpen /> Open folder
-        </button>
+        </AppButton>
         <div className="recent-block">
           <span>Recent folders</span>
           {recent.length ? (
             recent.map((folder) => (
-              <button
+              <AppButton
                 className="recent-row"
                 key={folder.root}
                 onClick={() => onOpenRecent(folder)}
               >
                 <strong>{folder.name}</strong>
                 <small>{folder.root}</small>
-              </button>
+              </AppButton>
             ))
           ) : (
             <p>No recent folders</p>

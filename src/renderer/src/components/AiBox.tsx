@@ -15,6 +15,7 @@ import type {
 } from "../../../shared/ai";
 import { applyAiPaletteUpdate } from "../../../shared/ai";
 import type { AiStylePreset } from "../../../shared/types";
+import { AppButton } from "./AppButton";
 import { resizePromptImage } from "./promptImage";
 
 type AiBoxProps = {
@@ -49,6 +50,9 @@ export function AiBox({
   const [paletteChoices, setPaletteChoices] = useState<
     Record<number, { mode: AiPaletteUpdateMode | null; selected: number[] }>
   >({});
+  const [paletteTargets, setPaletteTargets] = useState<Record<number, string>>(
+    {},
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
@@ -93,6 +97,7 @@ export function AiBox({
       });
       onPreview(next);
       setPaletteChoices({});
+      setPaletteTargets({});
       setResponse(next);
     } catch (cause) {
       setError(String(cause));
@@ -110,6 +115,7 @@ export function AiBox({
     onReject();
     setResponse(null);
     setPaletteChoices({});
+    setPaletteTargets({});
     setError("");
   }
 
@@ -120,13 +126,17 @@ export function AiBox({
         if (command.kind !== "generate_palette" || command.mode !== "update")
           return command;
         const choice = paletteChoices[index];
+        const targetPaletteId =
+          paletteTargets[index] ?? command.targetPaletteId;
         const current = palettes.find(
-          (palette) => palette.id === command.targetPaletteId,
+          (palette) => palette.id === targetPaletteId,
         );
         if (!choice?.mode || !current)
           throw new Error("Choose how to update the palette");
         return {
           ...command,
+          paletteName: current.name,
+          targetPaletteId,
           colors: applyAiPaletteUpdate(
             current.colors,
             command.colors,
@@ -138,6 +148,7 @@ export function AiBox({
       if (onApprove({ ...response, commands })) {
         setResponse(null);
         setPaletteChoices({});
+        setPaletteTargets({});
         setError("");
       }
     } catch (cause) {
@@ -150,7 +161,9 @@ export function AiBox({
       if (command.kind !== "generate_palette" || command.mode !== "update")
         return true;
       const choice = paletteChoices[index];
+      const targetPaletteId = paletteTargets[index] ?? command.targetPaletteId;
       return Boolean(
+        palettes.some((palette) => palette.id === targetPaletteId) &&
         choice?.mode &&
         (choice.mode !== "selected" || choice.selected.length > 0),
       );
@@ -158,7 +171,7 @@ export function AiBox({
 
   return (
     <aside className={open ? "ai-box open" : "ai-box"}>
-      <button
+      <AppButton
         className="ai-box-heading"
         aria-expanded={open}
         onClick={() => setOpen(!open)}
@@ -167,7 +180,7 @@ export function AiBox({
           <Sparkles /> AI assistant
         </span>
         <ChevronDown className={open ? "rotate" : ""} />
-      </button>
+      </AppButton>
       {open && (
         <div className="ai-box-content">
           <div className="ai-style-picker">
@@ -182,7 +195,7 @@ export function AiBox({
                 </option>
               ))}
             </select>
-            <button onClick={onManageStyles}>Manage</button>
+            <AppButton onClick={onManageStyles}>Manage</AppButton>
           </div>
           <textarea
             aria-label="AI prompt"
@@ -193,14 +206,14 @@ export function AiBox({
             rows={3}
           />
           <div className="ai-box-actions">
-            <button
+            <AppButton
               title="Paste image"
               aria-label="Paste image"
               onClick={() => fileInput.current?.click()}
             >
               <ImagePlus />
               {image ? "Ảnh đã chọn" : "Ảnh"}
-            </button>
+            </AppButton>
             <input
               ref={fileInput}
               hidden
@@ -212,14 +225,14 @@ export function AiBox({
               }}
             />
             {!response && (
-              <button
+              <AppButton
                 className="primary-action"
                 disabled={busy || !prompt.trim()}
                 onClick={() => void run()}
               >
                 <Sparkles />
                 {busy ? "Đang tạo..." : "Đề xuất"}
-              </button>
+              </AppButton>
             )}
           </div>
           {image && (
@@ -228,7 +241,7 @@ export function AiBox({
                 src={`data:${image.mimeType};base64,${image.data}`}
                 alt="Ảnh đính kèm cho AI"
               />
-              <button onClick={() => setImage(null)}>Bỏ ảnh</button>
+              <AppButton onClick={() => setImage(null)}>Bỏ ảnh</AppButton>
             </div>
           )}
           {response && (
@@ -268,12 +281,39 @@ export function AiBox({
                     </div>
                     {command.mode === "update" &&
                       (() => {
+                        const targetPaletteId =
+                          paletteTargets[index] ?? command.targetPaletteId;
                         const current = palettes.find(
-                          (palette) => palette.id === command.targetPaletteId,
+                          (palette) => palette.id === targetPaletteId,
                         );
                         const choice = paletteChoices[index];
                         return (
                           <div className="ai-palette-update">
+                            <label className="ai-palette-target">
+                              <span>Target palette</span>
+                              <select
+                                value={targetPaletteId ?? ""}
+                                onChange={(event) => {
+                                  setPaletteTargets((targets) => ({
+                                    ...targets,
+                                    [index]: event.target.value,
+                                  }));
+                                  setPaletteChoices((choices) => ({
+                                    ...choices,
+                                    [index]: {
+                                      mode: choices[index]?.mode ?? null,
+                                      selected: [],
+                                    },
+                                  }));
+                                }}
+                              >
+                                {palettes.map((palette) => (
+                                  <option key={palette.id} value={palette.id}>
+                                    {palette.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
                             <span>Bạn muốn áp dụng thế nào?</span>
                             <div className="ai-palette-update-modes">
                               {(
@@ -283,7 +323,7 @@ export function AiBox({
                                   ["selected", "Select colors"],
                                 ] as const
                               ).map(([mode, label]) => (
-                                <button
+                                <AppButton
                                   className={
                                     choice?.mode === mode ? "active" : ""
                                   }
@@ -296,7 +336,7 @@ export function AiBox({
                                   }
                                 >
                                   {label}
-                                </button>
+                                </AppButton>
                               ))}
                             </div>
                             {choice?.mode === "selected" && current && (
@@ -353,24 +393,24 @@ export function AiBox({
                 ) : null,
               )}
               <div className="ai-review-actions">
-                <button
+                <AppButton
                   className="ai-regenerate"
                   disabled={busy || !prompt.trim()}
                   onClick={() => void run()}
                 >
                   <RefreshCw /> {busy ? "Đang tạo..." : "Regenerate"}
-                </button>
-                <button onClick={reject}>
+                </AppButton>
+                <AppButton onClick={reject}>
                   <X /> Reject
-                </button>
+                </AppButton>
                 {response.commands.length > 0 && (
-                  <button
+                  <AppButton
                     className="primary-action"
                     disabled={!canApprove}
                     onClick={approve}
                   >
                     <Check /> Approve
-                  </button>
+                  </AppButton>
                 )}
               </div>
             </div>

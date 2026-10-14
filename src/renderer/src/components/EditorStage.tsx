@@ -10,6 +10,7 @@ import {
   Ungroup,
 } from "lucide-react";
 import { AppInput } from "./AppInput";
+import { AppButton } from "./AppButton";
 
 type EditorStageProps = {
   canvasEl: RefObject<HTMLCanvasElement | null>;
@@ -86,39 +87,39 @@ export function EditorStage({
       </header>
       {hasSelection && (
         <div className="object-actions" aria-label="Selection actions">
-          <button
+          <AppButton
             title="Lower"
             aria-label="Lower"
             onClick={() => onLayer("down")}
           >
             <ArrowDown />
-          </button>
-          <button
+          </AppButton>
+          <AppButton
             title="Raise"
             aria-label="Raise"
             onClick={() => onLayer("up")}
           >
             <ArrowUp />
-          </button>
-          <button title="Group" aria-label="Group" onClick={onGroup}>
+          </AppButton>
+          <AppButton title="Group" aria-label="Group" onClick={onGroup}>
             <Group />
-          </button>
-          <button
+          </AppButton>
+          <AppButton
             title="Flatten"
             aria-label="Flatten"
             disabled={!canFlatten}
             onClick={onFlatten}
           >
             <Combine />
-          </button>
-          <button
+          </AppButton>
+          <AppButton
             title="Ungroup"
             aria-label="Ungroup"
             disabled={!canUngroup}
             onClick={onUngroup}
           >
             <Ungroup />
-          </button>
+          </AppButton>
         </div>
       )}
       {contextMenu && (
@@ -128,7 +129,7 @@ export function EditorStage({
           role="menu"
           onMouseLeave={onCloseContextMenu}
         >
-          <button
+          <AppButton
             role="menuitem"
             disabled={!canGroup}
             onClick={() => {
@@ -137,8 +138,8 @@ export function EditorStage({
             }}
           >
             Group
-          </button>
-          <button
+          </AppButton>
+          <AppButton
             role="menuitem"
             disabled={!canFlatten}
             onClick={() => {
@@ -147,8 +148,8 @@ export function EditorStage({
             }}
           >
             Flatten
-          </button>
-          <button
+          </AppButton>
+          <AppButton
             role="menuitem"
             disabled={!canUngroup}
             onClick={() => {
@@ -157,8 +158,8 @@ export function EditorStage({
             }}
           >
             Ungroup
-          </button>
-          <button
+          </AppButton>
+          <AppButton
             role="menuitem"
             onClick={() => {
               onLayer("up");
@@ -166,8 +167,8 @@ export function EditorStage({
             }}
           >
             Bring forward
-          </button>
-          <button
+          </AppButton>
+          <AppButton
             role="menuitem"
             onClick={() => {
               onLayer("front");
@@ -175,8 +176,8 @@ export function EditorStage({
             }}
           >
             Bring to front
-          </button>
-          <button
+          </AppButton>
+          <AppButton
             role="menuitem"
             onClick={() => {
               onLayer("down");
@@ -184,8 +185,8 @@ export function EditorStage({
             }}
           >
             Send backward
-          </button>
-          <button
+          </AppButton>
+          <AppButton
             role="menuitem"
             onClick={() => {
               onLayer("back");
@@ -193,7 +194,7 @@ export function EditorStage({
             }}
           >
             Send to back
-          </button>
+          </AppButton>
         </div>
       )}
       <div className="canvas-stage">
@@ -202,21 +203,21 @@ export function EditorStage({
         </div>
       </div>
       <div className="zoom-control" aria-label="Zoom controls">
-        <button
+        <AppButton
           title="Zoom out"
           aria-label="Zoom out"
           onClick={() => onZoom(zoom - 0.1)}
         >
           <Minus />
-        </button>
+        </AppButton>
         <span>{Math.round(zoom * 100)}%</span>
-        <button
+        <AppButton
           title="Zoom in"
           aria-label="Zoom in"
           onClick={() => onZoom(zoom + 0.1)}
         >
           <Plus />
-        </button>
+        </AppButton>
       </div>
       {overlay}
     </section>

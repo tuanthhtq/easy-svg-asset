@@ -53,6 +53,13 @@ select {
 button {
   cursor: pointer;
 }
+.app-button {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 7px 9px;
+  color: var(--text);
+  background: var(--panel-2);
+}
 button:disabled {
   cursor: not-allowed;
   opacity: 0.35;
@@ -236,6 +243,20 @@ button svg {
   gap: 7px;
   color: var(--muted);
   font-size: 12px;
+}
+.ai-palette-target {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+.ai-palette-target select {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 8px;
+  color: var(--text);
+  background: var(--panel-2);
 }
 .ai-palette-update-modes {
   display: grid;

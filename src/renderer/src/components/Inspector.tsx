@@ -9,6 +9,7 @@ import {
   Trash2,
 } from "lucide-react";
 import type { PalettePreset } from "../editor/palette";
+import { AppButton } from "./AppButton";
 import { AppInput } from "./AppInput";
 
 type InspectorProps = {
@@ -186,7 +187,7 @@ export function Inspector({
               </option>
             ))}
           </select>
-          <button
+          <AppButton
             title="New palette"
             aria-label="New palette"
             onClick={() =>
@@ -194,8 +195,8 @@ export function Inspector({
             }
           >
             <Plus />
-          </button>
-          <button
+          </AppButton>
+          <AppButton
             title="Rename palette"
             aria-label="Rename palette"
             onClick={() =>
@@ -203,8 +204,8 @@ export function Inspector({
             }
           >
             <Pencil />
-          </button>
-          <button
+          </AppButton>
+          <AppButton
             className={editingPalette ? "active" : ""}
             title="Edit palette colors"
             aria-label="Edit palette colors"
@@ -215,15 +216,15 @@ export function Inspector({
             }}
           >
             {editingPalette ? <Check /> : <Palette />}
-          </button>
-          <button
+          </AppButton>
+          <AppButton
             title="Delete palette"
             aria-label="Delete palette"
             disabled={palettes.length === 1}
             onClick={removePalette}
           >
             <Trash2 />
-          </button>
+          </AppButton>
         </div>
         {presetEditor && (
           <div className="palette-name-editor">
@@ -239,12 +240,12 @@ export function Inspector({
                 if (event.key === "Escape") setPresetEditor(null);
               }}
             />
-            <button onClick={savePresetName}>Save</button>
-            <button onClick={() => setPresetEditor(null)}>Cancel</button>
+            <AppButton onClick={savePresetName}>Save</AppButton>
+            <AppButton onClick={() => setPresetEditor(null)}>Cancel</AppButton>
           </div>
         )}
         <div className="palette-swatches" aria-label="Palette presets">
-          <button
+          <AppButton
             className="palette-swatch palette-none"
             title={`No ${paletteTarget}`}
             aria-label={`No ${paletteTarget}`}
@@ -273,7 +274,7 @@ export function Inspector({
                 });
               }}
             >
-              <button
+              <AppButton
                 className="palette-swatch"
                 title={color}
                 aria-label={`Use ${color}`}
@@ -312,7 +313,7 @@ export function Inspector({
           </label>
         )}
         <div className="style-targets" aria-label="Color target">
-          <button
+          <AppButton
             className={paletteTarget === "fill" ? "active" : ""}
             onClick={() => setPaletteTarget("fill")}
           >
@@ -321,8 +322,8 @@ export function Inspector({
               style={fillColor ? { backgroundColor: fillColor } : undefined}
             />
             Fill
-          </button>
-          <button
+          </AppButton>
+          <AppButton
             className={paletteTarget === "stroke" ? "active" : ""}
             onClick={() => setPaletteTarget("stroke")}
           >
@@ -331,7 +332,7 @@ export function Inspector({
               style={strokeColor ? { backgroundColor: strokeColor } : undefined}
             />
             Stroke
-          </button>
+          </AppButton>
         </div>
         <AppInput
           label="Stroke width"
@@ -363,10 +364,12 @@ export function Inspector({
             style={{ left: paletteMenu.x, top: paletteMenu.y }}
             onClick={(event) => event.stopPropagation()}
           >
-            <button onClick={() => openPaletteColorEditor(paletteMenu.index)}>
+            <AppButton
+              onClick={() => openPaletteColorEditor(paletteMenu.index)}
+            >
               Edit color
-            </button>
-            <button
+            </AppButton>
+            <AppButton
               disabled={palette.colors.length === 1}
               onClick={() => {
                 removePaletteColor(paletteMenu.index);
@@ -374,7 +377,7 @@ export function Inspector({
               }}
             >
               Delete color
-            </button>
+            </AppButton>
           </div>
         )}
       </div>

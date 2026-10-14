@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import type { LibraryShape, Project } from "../../../shared/types";
 import { isFlattened } from "../editor/flatten";
+import { AppButton } from "./AppButton";
 
 type NamedObject = FabricObject & { name?: string };
 
@@ -88,14 +89,14 @@ export function ProjectPanel({
           <span className="eyebrow">Workspace</span>
           <strong>{project.name}</strong>
         </div>
-        <button
+        <AppButton
           className="icon-button"
           title="Open folder"
           aria-label="Open folder"
           onClick={onOpenFolder}
         >
           <FolderOpen />
-        </button>
+        </AppButton>
       </div>
       <div className="project-path" title={project.root}>
         {project.root}
@@ -103,7 +104,7 @@ export function ProjectPanel({
       <div className="document-block">
         <div className="document-heading">
           <label htmlFor="open-svg">Document</label>
-          <button
+          <AppButton
             className="document-reload"
             title="Reload current SVG from disk"
             aria-label="Reload current SVG from disk"
@@ -111,7 +112,7 @@ export function ProjectPanel({
             onClick={onReload}
           >
             <RefreshCw />
-          </button>
+          </AppButton>
         </div>
         <select
           id="open-svg"
@@ -131,22 +132,22 @@ export function ProjectPanel({
         />
       </div>
       <div className="panel-tabs" role="tablist">
-        <button
+        <AppButton
           className={panel === "layers" ? "active" : ""}
           role="tab"
           aria-selected={panel === "layers"}
           onClick={() => onPanelChange("layers")}
         >
           <Layers3 /> Layers <span>{objects.length}</span>
-        </button>
-        <button
+        </AppButton>
+        <AppButton
           className={panel === "library" ? "active" : ""}
           role="tab"
           aria-selected={panel === "library"}
           onClick={() => onPanelChange("library")}
         >
           <LibraryBig /> Library <span>{library.length}</span>
-        </button>
+        </AppButton>
       </div>
       {panel === "layers" ? (
         <div className="layers">
@@ -187,41 +188,41 @@ export function ProjectPanel({
         </div>
       ) : (
         <>
-          <button
+          <AppButton
             className="save-shape"
             onClick={onSaveShape}
             disabled={!selected}
           >
             <LibraryBig /> Save selection to library
-          </button>
+          </AppButton>
           <div className="library-grid">
             {library.map((shape) => (
-              <button
+              <AppButton
                 className="library-shape"
                 key={shape.path}
                 onClick={() => onUseShape(shape)}
               >
                 <span dangerouslySetInnerHTML={{ __html: shape.svg }} />
                 <small>{shape.name}</small>
-              </button>
+              </AppButton>
             ))}
           </div>
         </>
       )}
       <div className="file-actions">
-        <button onClick={onNew}>
+        <AppButton onClick={onNew}>
           <FilePlus2 /> New
-        </button>
-        <button onClick={onImport}>
+        </AppButton>
+        <AppButton onClick={onImport}>
           <Upload /> Import
-        </button>
-        <button className="primary-action" onClick={onExport}>
+        </AppButton>
+        <AppButton className="primary-action" onClick={onExport}>
           Export PNG
-        </button>
+        </AppButton>
       </div>
-      <button className="panel-save" onClick={onSave}>
+      <AppButton className="panel-save" onClick={onSave}>
         Save SVG
-      </button>
+      </AppButton>
     </aside>
   );
 }

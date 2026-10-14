@@ -1,6 +1,7 @@
 import { Copy, Plus, Trash2, Upload, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { AiStylePreset, AiStyleView } from "../../../shared/types";
+import { AppButton } from "./AppButton";
 import { resizePromptImage } from "./promptImage";
 
 const VIEWS: Array<{ value: AiStyleView; label: string }> = [
@@ -147,12 +148,16 @@ export function AiStylePresetManager({
       <aside className="style-preset-list">
         <div className="style-preset-list-heading">
           <strong>Style presets</strong>
-          <button title="New preset" aria-label="New preset" onClick={create}>
+          <AppButton
+            title="New preset"
+            aria-label="New preset"
+            onClick={create}
+          >
             <Plus />
-          </button>
+          </AppButton>
         </div>
         {presets.map((preset) => (
-          <button
+          <AppButton
             className={preset.id === selectedId ? "active" : ""}
             key={preset.id}
             onClick={() => select(preset)}
@@ -162,7 +167,7 @@ export function AiStylePresetManager({
               {preset.isDefault ? "Default · " : ""}
               {preset.referenceImages.length} refs
             </small>
-          </button>
+          </AppButton>
         ))}
       </aside>
       <section className="style-preset-editor">
@@ -175,15 +180,15 @@ export function AiStylePresetManager({
             }
           />
           <div>
-            <button
+            <AppButton
               title="Duplicate preset"
               aria-label="Duplicate preset"
               disabled={!selected || busy}
               onClick={() => selected && void onDuplicate(selected.id)}
             >
               <Copy />
-            </button>
-            <button
+            </AppButton>
+            <AppButton
               title="Delete preset"
               aria-label="Delete preset"
               disabled={
@@ -198,7 +203,7 @@ export function AiStylePresetManager({
               }}
             >
               <Trash2 />
-            </button>
+            </AppButton>
           </div>
         </div>
         <label>
@@ -285,12 +290,12 @@ export function AiStylePresetManager({
             <strong>Reference images</strong>
             <small> Up to 3 images, 5 MB total.</small>
           </div>
-          <button
+          <AppButton
             disabled={!selected || draft.referenceImages.length >= 3 || busy}
             onClick={() => fileInput.current?.click()}
           >
             <Upload /> Add image
-          </button>
+          </AppButton>
           <input
             ref={fileInput}
             hidden
@@ -309,14 +314,14 @@ export function AiStylePresetManager({
                 <img src={previews[reference.id]} alt={reference.name} />
               )}
               <figcaption title={reference.name}>{reference.name}</figcaption>
-              <button
+              <AppButton
                 title="Remove reference"
                 aria-label={`Remove ${reference.name}`}
                 disabled={busy}
                 onClick={() => void removeReference(reference.id)}
               >
                 <X />
-              </button>
+              </AppButton>
             </figure>
           ))}
           {!draft.referenceImages.length && (
@@ -324,13 +329,13 @@ export function AiStylePresetManager({
           )}
         </div>
         {error && <p className="ai-error">{error}</p>}
-        <button
+        <AppButton
           className="primary-action style-save"
           disabled={busy}
           onClick={() => void save()}
         >
           {busy ? "Saving..." : selected ? "Save preset" : "Create preset"}
-        </button>
+        </AppButton>
       </section>
     </div>
   );
