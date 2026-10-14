@@ -1331,6 +1331,34 @@ button:focus-visible {
 }
 
 @media (max-width: 760px) {
+  .settings-backdrop {
+    padding: 10px;
+  }
+  .settings-dialog.wide {
+    max-height: calc(100dvh - 20px);
+  }
+  .style-preset-manager {
+    grid-template-columns: 1fr;
+    overflow: auto;
+  }
+  .style-preset-list {
+    flex-direction: row;
+    overflow-x: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .style-preset-list-heading {
+    flex: 0 0 142px;
+  }
+  .style-preset-list > button {
+    flex: 0 0 142px;
+  }
+  .style-rule-grid {
+    grid-template-columns: 1fr;
+  }
+  .style-reference-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .workspace {
     grid-template-columns: 170px 50px minmax(0, 1fr);
   }

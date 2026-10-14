@@ -623,6 +623,16 @@ test("global AI style presets persist rules and bounded references", async () =>
       created.some((preset) => preset.id === "cozy-farming"),
       true,
     );
+    await assert.rejects(
+      saveAiStylePreset(root, {
+        ...created[0],
+        id: "forged-reference",
+        referenceImages: [
+          { id: "missing", name: "missing.png", mimeType: "image/png" },
+        ],
+      }),
+      /cannot reference missing images/,
+    );
     for (let index = 0; index < 3; index++)
       await addAiStyleReference(root, "cozy-farming", `sample-${index}.png`, {
         mimeType: "image/png",

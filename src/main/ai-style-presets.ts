@@ -121,9 +121,16 @@ export async function saveAiStylePreset(userData: string, value: unknown) {
   const preset = { ...value, name: value.name.trim() };
   const update = writes.then(async () => {
     const presets = await readPresets(userData);
-    const next = presets.some((item) => item.id === preset.id)
-      ? presets.map((item) => (item.id === preset.id ? preset : item))
-      : [...presets, preset];
+    const current = presets.find((item) => item.id === preset.id);
+    if (!current && preset.referenceImages.length)
+      throw new Error("New AI style presets cannot reference missing images");
+    const saved = {
+      ...preset,
+      referenceImages: current?.referenceImages ?? [],
+    };
+    const next = current
+      ? presets.map((item) => (item.id === saved.id ? saved : item))
+      : [...presets, saved];
     await writePresets(userData, next);
     return next;
   });

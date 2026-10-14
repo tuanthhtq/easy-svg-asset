@@ -192,21 +192,52 @@ function validateRequest(value: unknown): AiRequest {
   if (
     !request.stylePreset ||
     typeof request.stylePreset.id !== "string" ||
+    request.stylePreset.id.length > 80 ||
     typeof request.stylePreset.name !== "string" ||
+    request.stylePreset.name.length > 80 ||
     typeof request.stylePreset.instruction !== "string" ||
+    request.stylePreset.instruction.length > 4000 ||
+    ![
+      "orthographic_top_down",
+      "three_quarter_top_down",
+      "isometric",
+      "freeform",
+    ].includes(request.stylePreset.terrainView) ||
+    ![
+      "orthographic_top_down",
+      "three_quarter_top_down",
+      "isometric",
+      "freeform",
+    ].includes(request.stylePreset.propView) ||
+    ![
+      "orthographic_top_down",
+      "three_quarter_top_down",
+      "isometric",
+      "freeform",
+    ].includes(request.stylePreset.buildingView) ||
+    typeof request.stylePreset.noVisibleSideFacesForTerrain !== "boolean" ||
+    !["minimal", "moderate", "rich"].includes(
+      request.stylePreset.detailLevel,
+    ) ||
     !Array.isArray(request.stylePreset.referenceImages) ||
     request.stylePreset.referenceImages.length > 3
   )
     throw new Error("Invalid AI style preset");
+  let referenceBytes = 0;
   for (const reference of request.stylePreset.referenceImages) {
     if (
       !["image/png", "image/jpeg", "image/webp"].includes(reference.mimeType) ||
+      typeof reference.id !== "string" ||
+      typeof reference.name !== "string" ||
       typeof reference.data !== "string" ||
       reference.data.length > 7_000_000 ||
       !/^[\w+/]*={0,2}$/.test(reference.data)
     )
       throw new Error("Invalid AI style reference image");
+    referenceBytes += Buffer.byteLength(reference.data, "base64");
   }
+  if (referenceBytes > 5_000_000)
+    throw new Error("AI style references exceed 5 MB");
   if (request.image) {
     if (
       !["image/png", "image/jpeg", "image/webp"].includes(
