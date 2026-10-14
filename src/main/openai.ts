@@ -190,6 +190,32 @@ function validateRequest(value: unknown): AiRequest {
   )
     throw new Error("Invalid AI scene context");
   if (
+    !Array.isArray(request.palettes) ||
+    !request.palettes.length ||
+    request.palettes.length > 32 ||
+    !request.palettes.every(
+      (palette) =>
+        Boolean(palette) &&
+        typeof palette.id === "string" &&
+        palette.id.length > 0 &&
+        palette.id.length <= 80 &&
+        typeof palette.name === "string" &&
+        palette.name.trim().length > 0 &&
+        palette.name.length <= 40 &&
+        Array.isArray(palette.colors) &&
+        palette.colors.length > 0 &&
+        palette.colors.length <= 16 &&
+        palette.colors.every(
+          (color) =>
+            typeof color === "string" && /^#[\da-f]{6}$/i.test(color),
+        ),
+    ) ||
+    !request.palettes.some(
+      (palette) => palette.id === request.scene.activePalette.id,
+    )
+  )
+    throw new Error("Invalid AI palettes");
+  if (
     !request.stylePreset ||
     typeof request.stylePreset.id !== "string" ||
     request.stylePreset.id.length > 80 ||
@@ -281,7 +307,7 @@ export async function runAi(value: unknown): Promise<AiResponse> {
   try {
     const request = validateRequest(value);
     const credentials = await getAiCredentials();
-    const scene = JSON.stringify(compactAiScene(request.scene));
+    const scene = JSON.stringify(compactAiScene(request.scene, request.palettes));
     const style = JSON.stringify({
       id: request.stylePreset.id,
       name: request.stylePreset.name,
@@ -332,7 +358,7 @@ export async function runAi(value: unknown): Promise<AiResponse> {
         ? { reasoning: { effort: credentials.reasoningEffort } }
         : {}),
       instructions:
-        "Plan SVG edits; call tools only. STYLE is the active global game-asset preset. Classify the requested subject as terrain, prop, or building, then apply the matching STYLE view. Terrain must obey noVisibleSideFacesForTerrain. STYLE reference images define visual treatment only, never extra content. If the prompt conflicts with STYLE, ask before overriding it. SCENE keys: c=[width,height], o rows=[id,type,name,left,top,width,height,rotation,z,strokeWidth,radius], s=selected IDs, p=active palette colors, d=[strokeWidth,radius,snap,gridSize], v=version. Treat d as authoritative for line weight and corner treatment. Created fill/stroke colors must come from p; stroked shapes use d[0]; rect radius=min(d[1],width/2,height/2), other shapes use radius=0. Interpret the requested subject literally. Create only geometry required to depict it. Do not add decorations, labels, plants, buildings, characters, props, or secondary subjects unless explicitly requested. Style words control visual treatment only; they do not add objects. Prefer the fewest shapes that clearly represent the request: simple nouns use 1-4 shapes, complex named assets use 2-8 essential shapes. Use create_shape for simple subjects and create_asset only for genuinely multi-part objects. Every asset child must be essential. Keep new top-level items inside c and clear of existing/new top-level items; asset children may overlap. Prefer rect, ellipse, triangle; use pen only when needed. Palette mode must be explicit; otherwise ask. Recolor only with p; put proposed colors in paletteSuggestions. Never delete, flatten, ungroup, save, or change unrequested content.",
+        "Plan SVG edits; call tools only. STYLE is the active global game-asset preset. Classify the requested subject as terrain, prop, or building, then apply the matching STYLE view. Terrain must obey noVisibleSideFacesForTerrain. STYLE reference images define visual treatment only, never extra content. If the prompt conflicts with STYLE, ask before overriding it. SCENE keys: c=[width,height], o rows=[id,type,name,left,top,width,height,rotation,z,strokeWidth,radius], s=selected IDs, p=active palette ID, l palette rows=[id,name,colors], d=[strokeWidth,radius,snap,gridSize], v=version. Treat d as authoritative for line weight and corner treatment. Created fill/stroke colors must come from the active palette in l; stroked shapes use d[0]; rect radius=min(d[1],width/2,height/2), other shapes use radius=0. Interpret the requested subject literally. Create only geometry required to depict it. Do not add decorations, labels, plants, buildings, characters, props, or secondary subjects unless explicitly requested. Style words control visual treatment only; they do not add objects. Prefer the fewest shapes that clearly represent the request: simple nouns use 1-4 shapes, complex named assets use 2-8 essential shapes. Use create_shape for simple subjects and create_asset only for genuinely multi-part objects. Every asset child must be essential. Keep new top-level items inside c and clear of existing/new top-level items; asset children may overlap. Prefer rect, ellipse, triangle; use pen only when needed. For palette requests, use exact IDs from l and target p when the user says current palette. Return the complete proposed palette in colors. Recolor only with colors from the target palette; put proposed additions in paletteSuggestions. Never delete, flatten, ungroup, save, or change unrequested content.",
       input: [{ role: "user", content }],
       tools,
       tool_choice: "required",

@@ -92,6 +92,7 @@ export type AiRequest = {
   image: AiImage | null;
   stylePreset: AiStylePrompt;
   scene: AiSceneContext;
+  palettes: AiPalette[];
 };
 export type AiResponse = {
   message: string;
@@ -99,7 +100,7 @@ export type AiResponse = {
   sceneVersion: number;
 };
 
-export function compactAiScene(scene: AiSceneContext) {
+export function compactAiScene(scene: AiSceneContext, palettes: AiPalette[]) {
   return {
     c: [scene.canvas.width, scene.canvas.height],
     o: scene.objects.map((object) => [
@@ -116,7 +117,8 @@ export function compactAiScene(scene: AiSceneContext) {
       object.radius,
     ]),
     s: scene.selectedObjectIds,
-    p: scene.activePalette.colors,
+    p: scene.activePalette.id,
+    l: palettes.map((palette) => [palette.id, palette.name, palette.colors]),
     d: [
       scene.settings.strokeWidth,
       scene.settings.radius,

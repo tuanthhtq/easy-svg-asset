@@ -7,12 +7,17 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import type { AiResponse, AiSceneContext } from "../../../shared/ai";
+import type {
+  AiPalette,
+  AiResponse,
+  AiSceneContext,
+} from "../../../shared/ai";
 import type { AiStylePreset } from "../../../shared/types";
 import { resizePromptImage } from "./promptImage";
 
 type AiBoxProps = {
   scene: AiSceneContext;
+  palettes: AiPalette[];
   onPreview: (response: AiResponse) => void;
   onApprove: (response: AiResponse) => boolean;
   onReject: () => void;
@@ -24,6 +29,7 @@ type AiBoxProps = {
 
 export function AiBox({
   scene,
+  palettes,
   onPreview,
   onApprove,
   onReject,
@@ -78,6 +84,7 @@ export function AiBox({
         image,
         stylePreset: { ...preset, referenceImages },
         scene,
+        palettes,
       });
       onPreview(next);
       setResponse(next);

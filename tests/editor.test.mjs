@@ -406,7 +406,7 @@ test("AI assets require a named group and valid child shapes", () => {
   );
 });
 
-test("AI scene payload is compact and includes current drawing settings", () => {
+test("AI scene payload is compact and includes palettes and drawing settings", () => {
   const scene = compactAiScene({
     canvas: { width: 1200, height: 760 },
     objects: [
@@ -432,10 +432,17 @@ test("AI scene payload is compact and includes current drawing settings", () => 
       gridSize: 8,
     },
     sceneVersion: 3,
-  });
+  }, [
+    { id: "warm", name: "Warm", colors: ["#123456"] },
+    { id: "farm", name: "Farm Pop", colors: ["#abcdef"] },
+  ]);
   assert.deepEqual(scene.c, [1200, 760]);
   assert.deepEqual(scene.d, [4, 16, true, 8]);
-  assert.deepEqual(scene.p, ["#123456"]);
+  assert.equal(scene.p, "warm");
+  assert.deepEqual(scene.l, [
+    ["warm", "Warm", ["#123456"]],
+    ["farm", "Farm Pop", ["#abcdef"]],
+  ]);
   assert.deepEqual(scene.o, [
     ["shape-1", "rect", "Field", 1, 2, 3, 4, 5, 0, 4, 16],
   ]);

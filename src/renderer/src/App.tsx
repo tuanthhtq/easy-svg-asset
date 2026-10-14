@@ -385,6 +385,7 @@ export function App() {
                 palettes.find((palette) => palette.id === paletteId) ??
                   palettes[0],
               )}
+              palettes={palettes}
               onPreview={previewAi}
               onApprove={approveAi}
               onReject={editor.discardAiPreview}
