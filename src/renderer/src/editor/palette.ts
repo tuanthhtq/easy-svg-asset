@@ -24,8 +24,13 @@ export const DEFAULT_PALETTES: PalettePreset[] = [
 export function resolvePaletteId(
   palettes: PalettePreset[],
   saved: string | null,
+  savedName: string | null = null,
 ) {
-  return palettes.find((palette) => palette.id === saved)?.id ?? palettes[0].id;
+  return (
+    palettes.find((palette) => palette.id === saved)?.id ??
+    palettes.find((palette) => palette.name === savedName)?.id ??
+    palettes[0].id
+  );
 }
 
 export function parsePalettePresets(value: string | null) {

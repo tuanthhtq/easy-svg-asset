@@ -248,6 +248,7 @@ test("active palette selection survives restart with a safe fallback", () => {
     { id: "farm", name: "Farm", colors: ["#abcdef"] },
   ];
   assert.equal(resolvePaletteId(palettes, "farm"), "farm");
+  assert.equal(resolvePaletteId(palettes, "old-farm", "Farm"), "farm");
   assert.equal(resolvePaletteId(palettes, "missing"), "warm");
   assert.equal(resolvePaletteId(palettes, null), "warm");
 });

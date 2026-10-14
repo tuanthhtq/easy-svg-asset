@@ -26,6 +26,7 @@ import {
 
 const PALETTE_STORAGE_KEY = "easy-svg-asset-palettes";
 const ACTIVE_PALETTE_STORAGE_KEY = "easy-svg-asset-active-palette";
+const ACTIVE_PALETTE_NAME_STORAGE_KEY = "easy-svg-asset-active-palette-name";
 const DEFAULT_APP_SETTINGS: AppSettings = {
   autoSaveDelay: 500,
   aiApiUrl: "https://api.openai.com/v1/responses",
@@ -56,6 +57,7 @@ export function App() {
     resolvePaletteId(
       palettes,
       localStorage.getItem(ACTIVE_PALETTE_STORAGE_KEY),
+      localStorage.getItem(ACTIVE_PALETTE_NAME_STORAGE_KEY),
     ),
   );
   const [panel, setPanel] = useState<Panel>("layers");
@@ -79,10 +81,30 @@ export function App() {
   }, [palettes]);
 
   useEffect(() => {
-    const resolved = resolvePaletteId(palettes, paletteId);
+    const resolved = resolvePaletteId(
+      palettes,
+      paletteId,
+      localStorage.getItem(ACTIVE_PALETTE_NAME_STORAGE_KEY),
+    );
     if (resolved !== paletteId) setPaletteId(resolved);
-    else localStorage.setItem(ACTIVE_PALETTE_STORAGE_KEY, paletteId);
+    else {
+      localStorage.setItem(ACTIVE_PALETTE_STORAGE_KEY, paletteId);
+      localStorage.setItem(
+        ACTIVE_PALETTE_NAME_STORAGE_KEY,
+        palettes.find((palette) => palette.id === paletteId)?.name ?? "",
+      );
+    }
   }, [paletteId, palettes]);
+
+  function selectPalette(id: string) {
+    if (!palettes.some((palette) => palette.id === id)) return;
+    localStorage.setItem(ACTIVE_PALETTE_STORAGE_KEY, id);
+    localStorage.setItem(
+      ACTIVE_PALETTE_NAME_STORAGE_KEY,
+      palettes.find((palette) => palette.id === id)?.name ?? "",
+    );
+    setPaletteId(id);
+  }
 
   useEffect(() => {
     if (!project) return;
@@ -308,7 +330,7 @@ export function App() {
           );
       }
       setPalettes(nextPalettes);
-      setPaletteId(nextPaletteId);
+      selectPalette(nextPaletteId);
       editor.approveAiCommands(response.commands);
       return true;
     } catch (error) {
@@ -459,7 +481,7 @@ export function App() {
           radius={editor.radius}
           palettes={palettes}
           paletteId={paletteId}
-          onPaletteIdChange={setPaletteId}
+          onPaletteIdChange={selectPalette}
           onPalettesChange={setPalettes}
           onStrokeWidthChange={(value) =>
             editor.updateStyle("strokeWidth", value)
